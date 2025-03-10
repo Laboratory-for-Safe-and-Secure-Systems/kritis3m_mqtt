@@ -15,7 +15,7 @@
 #     Genis Riera Perez - Add support for building debian package
 #*******************************************************************************/
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.22)
 
 project("Eclipse Paho C" 
   VERSION 1.3.14
@@ -54,13 +54,14 @@ endif()
 ## build options
 option(PAHO_WITH_SSL "Flag that defines whether to build ssl-enabled binaries too. " FALSE)
 option(PAHO_WITH_LIBRESSL "Flag that defines whether to build ssl-enabled binaries with LibreSSL instead of OpenSSL. " FALSE)
+option(PAHO_WITH_ASL "Flag that defines whether to build with ASL instead of openssl" TRUE)
 option(PAHO_WITH_LIBUUID "Flag that defines whether libuuid or a custom uuid implementation should be used" FALSE)
-option(PAHO_BUILD_SHARED "Build shared library" TRUE)
-option(PAHO_BUILD_STATIC "Build static library" FALSE)
+option(PAHO_BUILD_SHARED "Build shared library" FALSE)
+option(PAHO_BUILD_STATIC "Build static library" TRUE)
 option(PAHO_BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" FALSE)
 option(PAHO_BUILD_SAMPLES "Build sample programs" FALSE)
 option(PAHO_BUILD_DEB_PACKAGE "Build debian package" FALSE)
-option(PAHO_ENABLE_TESTING "Build tests and run" TRUE)
+option(PAHO_ENABLE_TESTING "Build tests and run" FALSE)
 option(PAHO_ENABLE_CPACK "Enable CPack" TRUE)
 option(PAHO_HIGH_PERFORMANCE "Disable tracing and heap tracking" FALSE)
 option(PAHO_USE_SELECT "Revert to select system call instead of poll" FALSE)

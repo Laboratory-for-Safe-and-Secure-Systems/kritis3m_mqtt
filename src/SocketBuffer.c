@@ -42,24 +42,22 @@
 /**
  * Default input queue buffer
  */
-static socket_queue* def_queue;
+static socket_queue *def_queue;
 
 /**
  * List of queued input buffers
  */
-static List* queues;
+static List *queues;
 
 /**
  * List of queued write buffers
  */
 static List writes;
 
-
-int socketcompare(void* a, void* b);
+int socketcompare(void *a, void *b);
 int SocketBuffer_newDefQ(void);
 void SocketBuffer_freeDefQ(void);
-int pending_socketcompare(void* a, void* b);
-
+int pending_socketcompare(void *a, void *b);
 
 /**
  * List callback function for comparing socket_queues by socket
@@ -67,11 +65,10 @@ int pending_socketcompare(void* a, void* b);
  * @param b second integer value
  * @return boolean indicating whether a and b are equal
  */
-int socketcompare(void* a, void* b)
+int socketcompare(void *a, void *b)
 {
-	return ((socket_queue*)a)->socket == *(int*)b;
+	return ((socket_queue *)a)->socket == *(int *)b;
 }
-
 
 /**
  * Create a new default queue when one has just been used.
@@ -95,7 +92,6 @@ int SocketBuffer_newDefQ(void)
 	return rc;
 }
 
-
 /**
  * Initialize the socketBuffer module
  */
@@ -115,7 +111,6 @@ int SocketBuffer_initialize(void)
 	return rc;
 }
 
-
 /**
  * Free the default queue memory
  */
@@ -123,26 +118,24 @@ void SocketBuffer_freeDefQ(void)
 {
 	free(def_queue->buf);
 	free(def_queue);
-        def_queue = NULL;
+	def_queue = NULL;
 }
-
 
 /**
  * Terminate the socketBuffer module
  */
 void SocketBuffer_terminate(void)
 {
-	ListElement* cur = NULL;
+	ListElement *cur = NULL;
 	ListEmpty(&writes);
 
 	FUNC_ENTRY;
 	while (ListNextElement(queues, &cur))
-		free(((socket_queue*)(cur->content))->buf);
+		free(((socket_queue *)(cur->content))->buf);
 	ListFree(queues);
 	SocketBuffer_freeDefQ();
 	FUNC_EXIT;
 }
-
 
 /**
  * Cleanup any buffers for a specific socket
@@ -154,7 +147,7 @@ void SocketBuffer_cleanup(SOCKET socket)
 	SocketBuffer_writeComplete(socket); /* clean up write buffers */
 	if (ListFindItem(queues, &socket, socketcompare))
 	{
-		free(((socket_queue*)(queues->current->content))->buf);
+		free(((socket_queue *)(queues->current->content))->buf);
 		ListRemove(queues, queues->current->content);
 	}
 	if (def_queue->socket == socket)
@@ -165,7 +158,6 @@ void SocketBuffer_cleanup(SOCKET socket)
 	FUNC_EXIT;
 }
 
-
 /**
  * Get any queued data for a specific socket
  * @param socket the socket to get queued data for
@@ -173,14 +165,14 @@ void SocketBuffer_cleanup(SOCKET socket)
  * @param actual_len the actual length returned
  * @return the actual data
  */
-char* SocketBuffer_getQueuedData(SOCKET socket, size_t bytes, size_t* actual_len)
+char *SocketBuffer_getQueuedData(SOCKET socket, size_t bytes, size_t *actual_len)
 {
-	socket_queue* queue = NULL;
+	socket_queue *queue = NULL;
 
 	FUNC_ENTRY;
 	if (ListFindItem(queues, &socket, socketcompare))
-	{  /* if there is queued data for this socket, add any data read to it */
-		queue = (socket_queue*)(queues->current->content);
+	{ /* if there is queued data for this socket, add any data read to it */
+		queue = (socket_queue *)(queues->current->content);
 		*actual_len = queue->datalen;
 	}
 	else
@@ -192,7 +184,7 @@ char* SocketBuffer_getQueuedData(SOCKET socket, size_t bytes, size_t* actual_len
 	{
 		if (queue->datalen > 0)
 		{
-			void* newmem = malloc(bytes);
+			void *newmem = malloc(bytes);
 			if (newmem)
 			{
 				memcpy(newmem, queue->buf, queue->datalen);
@@ -208,7 +200,7 @@ char* SocketBuffer_getQueuedData(SOCKET socket, size_t bytes, size_t* actual_len
 		}
 		else
 		{
-			void* newmem = realloc(queue->buf, bytes);
+			void *newmem = realloc(queue->buf, bytes);
 			if (newmem)
 			{
 				queue->buf = newmem;
@@ -227,21 +219,20 @@ exit:
 	return queue->buf;
 }
 
-
 /**
  * Get any queued character for a specific socket
  * @param socket the socket to get queued data for
  * @param c the character returned if any
  * @return completion code
  */
-int SocketBuffer_getQueuedChar(SOCKET socket, char* c)
+int SocketBuffer_getQueuedChar(SOCKET socket, char *c)
 {
 	int rc = SOCKETBUFFER_INTERRUPTED;
 
 	FUNC_ENTRY;
 	if (ListFindItem(queues, &socket, socketcompare))
-	{  /* if there is queued data for this socket, read that first */
-		socket_queue* queue = (socket_queue*)(queues->current->content);
+	{ /* if there is queued data for this socket, read that first */
+		socket_queue *queue = (socket_queue *)(queues->current->content);
 		if (queue->index < queue->headerlen)
 		{
 			*c = queue->fixed_header[(queue->index)++];
@@ -258,9 +249,8 @@ int SocketBuffer_getQueuedChar(SOCKET socket, char* c)
 	}
 exit:
 	FUNC_EXIT_RC(rc);
-	return rc;  /* there was no queued char if rc is SOCKETBUFFER_INTERRUPTED*/
+	return rc; /* there was no queued char if rc is SOCKETBUFFER_INTERRUPTED*/
 }
-
 
 /**
  * A socket read was interrupted so we need to queue data
@@ -269,11 +259,11 @@ exit:
  */
 void SocketBuffer_interrupted(SOCKET socket, size_t actual_len)
 {
-	socket_queue* queue = NULL;
+	socket_queue *queue = NULL;
 
 	FUNC_ENTRY;
 	if (ListFindItem(queues, &socket, socketcompare))
-		queue = (socket_queue*)(queues->current->content);
+		queue = (socket_queue *)(queues->current->content);
 	else /* new saved queue */
 	{
 		queue = def_queue;
@@ -282,7 +272,7 @@ void SocketBuffer_interrupted(SOCKET socket, size_t actual_len)
 		  If actual_len == 0 then we may not need to do anything - I'll leave that
 		  optimization for another time. */
 		queue->socket = socket;
-		ListAppend(queues, def_queue, sizeof(socket_queue)+def_queue->buflen);
+		ListAppend(queues, def_queue, sizeof(socket_queue) + def_queue->buflen);
 		SocketBuffer_newDefQ();
 	}
 	queue->index = 0;
@@ -290,18 +280,17 @@ void SocketBuffer_interrupted(SOCKET socket, size_t actual_len)
 	FUNC_EXIT;
 }
 
-
 /**
  * A socket read has now completed so we can get rid of the queue
  * @param socket the socket for which the operation is now complete
  * @return pointer to the default queue data
  */
-char* SocketBuffer_complete(SOCKET socket)
+char *SocketBuffer_complete(SOCKET socket)
 {
 	FUNC_ENTRY;
 	if (ListFindItem(queues, &socket, socketcompare))
 	{
-		socket_queue* queue = (socket_queue*)(queues->current->content);
+		socket_queue *queue = (socket_queue *)(queues->current->content);
 		SocketBuffer_freeDefQ();
 		def_queue = queue;
 		ListDetach(queues, queue);
@@ -312,7 +301,6 @@ char* SocketBuffer_complete(SOCKET socket)
 	return def_queue->buf;
 }
 
-
 /**
  * Queued a Charactor to a specific socket
  * @param socket the socket for which to queue char for
@@ -321,11 +309,11 @@ char* SocketBuffer_complete(SOCKET socket)
 void SocketBuffer_queueChar(SOCKET socket, char c)
 {
 	int error = 0;
-	socket_queue* curq = def_queue;
+	socket_queue *curq = def_queue;
 
 	FUNC_ENTRY;
 	if (ListFindItem(queues, &socket, socketcompare))
-		curq = (socket_queue*)(queues->current->content);
+		curq = (socket_queue *)(queues->current->content);
 	else if (def_queue->socket == 0)
 	{
 		def_queue->socket = socket;
@@ -351,7 +339,6 @@ void SocketBuffer_queueChar(SOCKET socket, char c)
 	FUNC_EXIT;
 }
 
-
 /**
  * A socket write was interrupted so store the remaining data
  * @param socket the socket for which the write was interrupted
@@ -362,13 +349,16 @@ void SocketBuffer_queueChar(SOCKET socket, char c)
  * @param bytes actual data length that was written
  */
 #if defined(OPENSSL)
-int SocketBuffer_pendingWrite(SOCKET socket, SSL* ssl, int count, iobuf* iovecs, int* frees, size_t total, size_t bytes)
+int SocketBuffer_pendingWrite(SOCKET socket, SSL *ssl, int count, iobuf *iovecs, int *frees, size_t total, size_t bytes)
+#elif defined(PAHO_ASL)
+
+int SocketBuffer_pendingWrite(SOCKET socket, asl_session *ssl, int count, iobuf *iovecs, int *frees, size_t total, size_t bytes)
 #else
-int SocketBuffer_pendingWrite(SOCKET socket, int count, iobuf* iovecs, int* frees, size_t total, size_t bytes)
+int SocketBuffer_pendingWrite(SOCKET socket, int count, iobuf *iovecs, int *frees, size_t total, size_t bytes)
 #endif
 {
 	int i = 0;
-	pending_writes* pw = NULL;
+	pending_writes *pw = NULL;
 	int rc = 0;
 
 	FUNC_ENTRY;
@@ -379,7 +369,7 @@ int SocketBuffer_pendingWrite(SOCKET socket, int count, iobuf* iovecs, int* free
 		goto exit;
 	}
 	pw->socket = socket;
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 	pw->ssl = ssl;
 #endif
 	pw->bytes = bytes;
@@ -396,30 +386,27 @@ exit:
 	return rc;
 }
 
-
 /**
  * List callback function for comparing pending_writes by socket
  * @param a first integer value
  * @param b second integer value
  * @return boolean indicating whether a and b are equal
  */
-int pending_socketcompare(void* a, void* b)
+int pending_socketcompare(void *a, void *b)
 {
-	return ((pending_writes*)a)->socket == *(int*)b;
+	return ((pending_writes *)a)->socket == *(int *)b;
 }
-
 
 /**
  * Get any queued write data for a specific socket
  * @param socket the socket to get queued data for
  * @return pointer to the queued data or NULL
  */
-pending_writes* SocketBuffer_getWrite(SOCKET socket)
+pending_writes *SocketBuffer_getWrite(SOCKET socket)
 {
-	ListElement* le = ListFindItem(&writes, &socket, pending_socketcompare);
-	return (le) ? (pending_writes*)(le->content) : NULL;
+	ListElement *le = ListFindItem(&writes, &socket, pending_socketcompare);
+	return (le) ? (pending_writes *)(le->content) : NULL;
 }
-
 
 /**
  * A socket write has now completed so we can get rid of the queue
@@ -431,7 +418,6 @@ int SocketBuffer_writeComplete(SOCKET socket)
 	return ListRemoveItem(&writes, &socket, pending_socketcompare);
 }
 
-
 /**
  * Update the queued write data for a socket in the case of QoS 0 messages.
  * @param socket the socket for which the operation is now complete
@@ -439,15 +425,15 @@ int SocketBuffer_writeComplete(SOCKET socket)
  * @param payload the payload of the QoS 0 write
  * @return pointer to the updated queued data structure, or NULL
  */
-pending_writes* SocketBuffer_updateWrite(SOCKET socket, char* topic, char* payload)
+pending_writes *SocketBuffer_updateWrite(SOCKET socket, char *topic, char *payload)
 {
-	pending_writes* pw = NULL;
-	ListElement* le = NULL;
+	pending_writes *pw = NULL;
+	ListElement *le = NULL;
 
 	FUNC_ENTRY;
 	if ((le = ListFindItem(&writes, &socket, pending_socketcompare)) != NULL)
 	{
-		pw = (pending_writes*)(le->content);
+		pw = (pending_writes *)(le->content);
 		if (pw->count == 4)
 		{
 			pw->iovecs[2].iov_base = topic;
