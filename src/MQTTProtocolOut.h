@@ -3,11 +3,11 @@
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
- * and Eclipse Distribution License v1.0 which accompany this distribution. 
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
  *
- * The Eclipse Public License is available at 
+ * The Eclipse Public License is available at
  *    https://www.eclipse.org/legal/epl-2.0/
- * and the Eclipse Distribution License is available at 
+ * and the Eclipse Distribution License is available at
  *   http://www.eclipse.org/org/documents/edl-v10.php.
  *
  * Contributors:
@@ -36,31 +36,32 @@
 #define WSS_DEFAULT_PORT 443
 #define PROXY_DEFAULT_PORT 8080
 
-size_t MQTTProtocol_addressPort(const char* uri, int* port, const char **topic, int default_port);
-void MQTTProtocol_reconnect(const char* ip_address, Clients* client);
-#if defined(OPENSSL)
+size_t MQTTProtocol_addressPort(const char *uri, int *port, const char **topic, int default_port);
+void MQTTProtocol_reconnect(const char *ip_address, Clients *client);
+
+#if defined(OPENSSL) || defined(PAHO_ASL)
 #if defined(__GNUC__) && defined(__linux__)
-int MQTTProtocol_connect(const char* ip_address, Clients* acClients, int unixsock, int ssl, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties, long timeout);
+int MQTTProtocol_connect(const char *ip_address, Clients *acClients, int unixsock, int ssl, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties, long timeout);
 #else
-int MQTTProtocol_connect(const char* ip_address, Clients* acClients, int unixsock, int ssl, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties);
+int MQTTProtocol_connect(const char *ip_address, Clients *acClients, int unixsock, int ssl, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties);
 #endif
 #else
 #if defined(__GNUC__) && defined(__linux__)
-int MQTTProtocol_connect(const char* ip_address, Clients* acClients, int unixsock, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties, long timeout);
+int MQTTProtocol_connect(const char *ip_address, Clients *acClients, int unixsock, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties, long timeout);
 #else
-int MQTTProtocol_connect(const char* ip_address, Clients* acClients, int unixsock, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties);
+int MQTTProtocol_connect(const char *ip_address, Clients *acClients, int unixsock, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties);
 #endif
 #endif
-int MQTTProtocol_handlePingresps(void* pack, SOCKET sock);
-int MQTTProtocol_subscribe(Clients* client, List* topics, List* qoss, int msgID,
-		MQTTSubscribe_options* opts, MQTTProperties* props);
-int MQTTProtocol_handleSubacks(void* pack, SOCKET sock);
-int MQTTProtocol_unsubscribe(Clients* client, List* topics, int msgID, MQTTProperties* props);
-int MQTTProtocol_handleUnsubacks(void* pack, SOCKET sock);
-int MQTTProtocol_handleDisconnects(void* pack, SOCKET sock);
+int MQTTProtocol_handlePingresps(void *pack, SOCKET sock);
+int MQTTProtocol_subscribe(Clients *client, List *topics, List *qoss, int msgID,
+						   MQTTSubscribe_options *opts, MQTTProperties *props);
+int MQTTProtocol_handleSubacks(void *pack, SOCKET sock);
+int MQTTProtocol_unsubscribe(Clients *client, List *topics, int msgID, MQTTProperties *props);
+int MQTTProtocol_handleUnsubacks(void *pack, SOCKET sock);
+int MQTTProtocol_handleDisconnects(void *pack, SOCKET sock);
 
 #endif

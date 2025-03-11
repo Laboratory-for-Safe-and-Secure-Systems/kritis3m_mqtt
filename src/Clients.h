@@ -21,6 +21,7 @@
 
 #if !defined(CLIENTS_H)
 #define CLIENTS_H
+#define PAHO_ASL
 
 #include <stdint.h>
 #include "MQTTTime.h"
@@ -93,6 +94,9 @@ typedef struct
 #elif defined(PAHO_ASL)
 	asl_session *ssl;
 	asl_endpoint *ep;
+
+	char *https_proxy;
+	char *https_proxy_auth;
 #endif
 
 	char *http_proxy;
@@ -165,7 +169,7 @@ typedef struct Clients
 	MQTTClient_SSLOptions *sslopts; /**< the SSL/TLS connect options */
 	SSL_SESSION *session;			/**< SSL session pointer for fast handhake */
 #elif defined(PAHO_ASL)
-	asl_session *session;
+	asl_endpoint_configuration *ep_config;
 #endif
 } Clients;
 

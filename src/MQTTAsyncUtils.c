@@ -1374,7 +1374,7 @@ static int MQTTAsync_processCommand(void)
 				command->command.details.conn.MQTTVersion = command->client->c->MQTTVersion;
 
 			Log(TRACE_PROTOCOL, -1, "Connecting to serverURI %s with MQTT version %d", serverURI, command->command.details.conn.MQTTVersion);
-#if defined(OPENSSL)
+#if defined(OPENSSL)||defined (PAHO_ASL)
 #if defined(__GNUC__) && defined(__linux__)
 			rc = MQTTProtocol_connect(serverURI, command->client->c, command->client->unixsock, command->client->ssl, command->client->websocket,
 					command->command.details.conn.MQTTVersion, command->client->connectProps, command->client->willProps, 100);

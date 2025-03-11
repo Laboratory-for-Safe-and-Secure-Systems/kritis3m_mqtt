@@ -27,7 +27,6 @@
  * Some other related functions are in the MQTTProtocolOut module
  * */
 
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -42,27 +41,27 @@
 #include "Heap.h"
 
 #if !defined(min)
-#define min(A,B) ( (A) < (B) ? (A):(B))
+#define min(A, B) ((A) < (B) ? (A) : (B))
 #endif
 
 extern MQTTProtocol state;
-extern ClientStates* bstate;
+extern ClientStates *bstate;
 
-static void MQTTProtocol_storeQoS0(Clients* pubclient, Publish* publish);
+static void MQTTProtocol_storeQoS0(Clients *pubclient, Publish *publish);
 static int MQTTProtocol_startPublishCommon(
-		Clients* pubclient,
-		Publish* publish,
-		int qos,
-		int retained);
-static void MQTTProtocol_retries(START_TIME_TYPE now, Clients* client, int regardless);
+	Clients *pubclient,
+	Publish *publish,
+	int qos,
+	int retained);
+static void MQTTProtocol_retries(START_TIME_TYPE now, Clients *client, int regardless);
 
-static int MQTTProtocol_queueAck(Clients* client, int ackType, int msgId);
+static int MQTTProtocol_queueAck(Clients *client, int ackType, int msgId);
 
-typedef struct {
+typedef struct
+{
 	int messageId;
 	int ackType;
 } AckRequest;
-
 
 /**
  * List callback function for comparing Message structures by message id
@@ -70,12 +69,11 @@ typedef struct {
  * @param b second integer value
  * @return boolean indicating whether a and b are equal
  */
-int messageIDCompare(void* a, void* b)
+int messageIDCompare(void *a, void *b)
 {
-	Messages* msg = (Messages*)a;
-	return msg->msgid == *(int*)b;
+	Messages *msg = (Messages *)a;
+	return msg->msgid == *(int *)b;
 }
-
 
 /**
  * Assign a new message id for a client.  Make sure it isn't already being used and does
@@ -83,7 +81,7 @@ int messageIDCompare(void* a, void* b)
  * @param client a client structure
  * @return the next message id to use, or 0 if none available
  */
-int MQTTProtocol_assignMsgId(Clients* client)
+int MQTTProtocol_assignMsgId(Clients *client)
 {
 	int start_msgid = client->msgID;
 	int msgid = start_msgid;
@@ -105,11 +103,10 @@ int MQTTProtocol_assignMsgId(Clients* client)
 	return msgid;
 }
 
-
-static void MQTTProtocol_storeQoS0(Clients* pubclient, Publish* publish)
+static void MQTTProtocol_storeQoS0(Clients *pubclient, Publish *publish)
 {
 	int len;
-	pending_write* pw = NULL;
+	pending_write *pw = NULL;
 
 	FUNC_ENTRY;
 	/* store the publication until the write is finished */
@@ -122,7 +119,7 @@ static void MQTTProtocol_storeQoS0(Clients* pubclient, Publish* publish)
 		goto exit;
 	}
 	pw->socket = pubclient->net.socket;
-	if (!ListAppend(&(state.pending_writes), pw, sizeof(pending_write)+len))
+	if (!ListAppend(&(state.pending_writes), pw, sizeof(pending_write) + len))
 	{
 		free(pw->p);
 		free(pw);
@@ -137,7 +134,6 @@ exit:
 	FUNC_EXIT;
 }
 
-
 /**
  * Utility function to start a new publish exchange.
  * @param pubclient the client to send the publication to
@@ -146,7 +142,7 @@ exit:
  * @param retained boolean - whether to set the MQTT retained flag
  * @return the completion code
  */
-static int MQTTProtocol_startPublishCommon(Clients* pubclient, Publish* publish, int qos, int retained)
+static int MQTTProtocol_startPublishCommon(Clients *pubclient, Publish *publish, int qos, int retained)
 {
 	int rc = TCPSOCKET_COMPLETE;
 
@@ -158,7 +154,6 @@ static int MQTTProtocol_startPublishCommon(Clients* pubclient, Publish* publish,
 	return rc;
 }
 
-
 /**
  * Start a new publish exchange.  Store any state necessary and try to send the packet
  * @param pubclient the client to send the publication to
@@ -168,7 +163,7 @@ static int MQTTProtocol_startPublishCommon(Clients* pubclient, Publish* publish,
  * @param mm - pointer to the message to send
  * @return the completion code
  */
-int MQTTProtocol_startPublish(Clients* pubclient, Publish* publish, int qos, int retained, Messages** mm)
+int MQTTProtocol_startPublish(Clients *pubclient, Publish *publish, int qos, int retained, Messages **mm)
 {
 	Publish qos12pub = *publish;
 	int rc = 0;
@@ -193,7 +188,6 @@ int MQTTProtocol_startPublish(Clients* pubclient, Publish* publish, int qos, int
 	return rc;
 }
 
-
 /**
  * Copy and store message data for retries
  * @param publish the publication data
@@ -203,9 +197,9 @@ int MQTTProtocol_startPublish(Clients* pubclient, Publish* publish, int qos, int
  * @param allocatePayload boolean - whether or not to malloc payload
  * @return pointer to the message data stored
  */
-Messages* MQTTProtocol_createMessage(Publish* publish, Messages **mm, int qos, int retained, int allocatePayload)
+Messages *MQTTProtocol_createMessage(Publish *publish, Messages **mm, int qos, int retained, int allocatePayload)
 {
-	Messages* m = malloc(sizeof(Messages));
+	Messages *m = malloc(sizeof(Messages));
 
 	FUNC_ENTRY;
 	if (!m)
@@ -252,22 +246,21 @@ exit:
 	return m;
 }
 
-
 /**
  * Store message data for possible retry
  * @param publish the publication data
  * @param len returned length of the data stored
  * @return the publication stored
  */
-Publications* MQTTProtocol_storePublication(Publish* publish, int* len)
+Publications *MQTTProtocol_storePublication(Publish *publish, int *len)
 {
-	Publications* p = malloc(sizeof(Publications));
+	Publications *p = malloc(sizeof(Publications));
 
 	FUNC_ENTRY;
 	if (!p)
 		goto exit;
 	p->refcount = 1;
-	*len = (int)strlen(publish->topic)+1;
+	*len = (int)strlen(publish->topic) + 1;
 	p->topic = publish->topic;
 	publish->topic = NULL;
 	*len += sizeof(Publications);
@@ -292,7 +285,7 @@ exit:
  * Remove stored message data.  Opposite of storePublication
  * @param p stored publication to remove
  */
-void MQTTProtocol_removePublication(Publications* p)
+void MQTTProtocol_removePublication(Publications *p)
 {
 	FUNC_ENTRY;
 	if (p && --(p->refcount) == 0)
@@ -320,22 +313,22 @@ void MQTTProtocol_removePublication(Publications* p)
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handlePublishes(void* pack, SOCKET sock)
+int MQTTProtocol_handlePublishes(void *pack, SOCKET sock)
 {
-	Publish* publish = (Publish*)pack;
-	Clients* client = NULL;
-	char* clientid = NULL;
+	Publish *publish = (Publish *)pack;
+	Clients *client = NULL;
+	char *clientid = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 	int socketHasPendingWrites = 0;
 
 	FUNC_ENTRY;
-	client = (Clients*)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
+	client = (Clients *)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
 	clientid = client->clientID;
 
 	/* Format and print publish data to trace */
 	{
 #if defined(_WIN32) || defined(_WIN64)
-		#define buflen 30
+#define buflen 30
 #else
 		const int buflen = 30;
 #endif
@@ -344,7 +337,7 @@ int MQTTProtocol_handlePublishes(void* pack, SOCKET sock)
 
 		len = MQTTPacket_formatPayload(buflen, buf, publish->payloadlen, publish->payload);
 		Log(LOG_PROTOCOL, 11, NULL, sock, clientid, publish->msgId, publish->header.bits.qos,
-						publish->header.bits.retain, publish->payloadlen, len, buf);
+			publish->header.bits.retain, publish->payloadlen, len, buf);
 	}
 
 	if (publish->header.bits.qos == 0)
@@ -358,7 +351,7 @@ int MQTTProtocol_handlePublishes(void* pack, SOCKET sock)
 	if (publish->header.bits.qos == 1)
 	{
 		Protocol_processPublication(publish, client, 1);
-  
+
 		if (socketHasPendingWrites)
 			rc = MQTTProtocol_queueAck(client, PUBACK, publish->msgId);
 		else
@@ -369,9 +362,9 @@ int MQTTProtocol_handlePublishes(void* pack, SOCKET sock)
 		/* store publication in inbound list */
 		int len;
 		int already_received = 0;
-		ListElement* listElem = NULL;
-		Messages* m = malloc(sizeof(Messages));
-		Publications* p = NULL;
+		ListElement *listElem = NULL;
+		Messages *m = malloc(sizeof(Messages));
+		Publications *p = NULL;
 		if (!m)
 		{
 			rc = PAHO_MEMORY_ERROR;
@@ -388,15 +381,16 @@ int MQTTProtocol_handlePublishes(void* pack, SOCKET sock)
 			m->properties = MQTTProperties_copy(&publish->properties);
 		m->nextMessageType = PUBREL;
 		if ((listElem = ListFindItem(client->inboundMsgs, &(m->msgid), messageIDCompare)) != NULL)
-		{   /* discard queued publication with same msgID that the current incoming message */
-			Messages* msg = (Messages*)(listElem->content);
+		{ /* discard queued publication with same msgID that the current incoming message */
+			Messages *msg = (Messages *)(listElem->content);
 			MQTTProtocol_removePublication(msg->publish);
 			if (msg->MQTTVersion >= MQTTVERSION_5)
 				MQTTProperties_free(&msg->properties);
 			ListInsert(client->inboundMsgs, m, sizeof(Messages) + len, listElem);
 			ListRemove(client->inboundMsgs, msg);
 			already_received = 1;
-		} else
+		}
+		else
 			ListAppend(client->inboundMsgs, m, sizeof(Messages) + len);
 
 		if (m->MQTTVersion >= MQTTVERSION_5 && already_received == 0)
@@ -416,9 +410,10 @@ int MQTTProtocol_handlePublishes(void* pack, SOCKET sock)
 			Protocol_processPublication(&publish1, client, 1);
 			ListRemove(&(state.publications), m->publish);
 			m->publish = NULL;
-		} else
-		{	/* allocate and copy payload data as it's needed for pubrel.
-		       For other cases, it's done in Protocol_processPublication */
+		}
+		else
+		{ /* allocate and copy payload data as it's needed for pubrel.
+			 For other cases, it's done in Protocol_processPublication */
 			char *temp = m->publish->payload;
 
 			if ((m->publish->payload = malloc(m->publish->payloadlen)) == NULL)
@@ -446,14 +441,14 @@ exit:
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handlePubacks(void* pack, SOCKET sock, Publications** pubToRemove)
+int MQTTProtocol_handlePubacks(void *pack, SOCKET sock, Publications **pubToRemove)
 {
-	Puback* puback = (Puback*)pack;
-	Clients* client = NULL;
+	Puback *puback = (Puback *)pack;
+	Clients *client = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 
 	FUNC_ENTRY;
-	client = (Clients*)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
+	client = (Clients *)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
 	Log(LOG_PROTOCOL, 14, NULL, sock, client->clientID, puback->msgId);
 
 	/* look for the message by message id in the records of outbound messages for this client */
@@ -461,17 +456,17 @@ int MQTTProtocol_handlePubacks(void* pack, SOCKET sock, Publications** pubToRemo
 		Log(TRACE_MIN, 3, NULL, "PUBACK", client->clientID, puback->msgId);
 	else
 	{
-		Messages* m = (Messages*)(client->outboundMsgs->current->content);
+		Messages *m = (Messages *)(client->outboundMsgs->current->content);
 		if (m->qos != 1)
 			Log(TRACE_MIN, 4, NULL, "PUBACK", client->clientID, puback->msgId, m->qos);
 		else
 		{
 			Log(TRACE_MIN, 6, NULL, "PUBACK", client->clientID, puback->msgId);
-			#if !defined(NO_PERSISTENCE)
-				rc = MQTTPersistence_remove(client,
-						(m->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_SENT : PERSISTENCE_PUBLISH_SENT,
-								m->qos, puback->msgId);
-			#endif
+#if !defined(NO_PERSISTENCE)
+			rc = MQTTPersistence_remove(client,
+										(m->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_SENT : PERSISTENCE_PUBLISH_SENT,
+										m->qos, puback->msgId);
+#endif
 			if (pubToRemove != NULL)
 				*pubToRemove = m->publish;
 			else
@@ -488,22 +483,21 @@ int MQTTProtocol_handlePubacks(void* pack, SOCKET sock, Publications** pubToRemo
 	return rc;
 }
 
-
 /**
  * Process an incoming pubrec packet for a socket
  * @param pack pointer to the publish packet
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handlePubrecs(void* pack, SOCKET sock, Publications** pubToRemove)
+int MQTTProtocol_handlePubrecs(void *pack, SOCKET sock, Publications **pubToRemove)
 {
-	Pubrec* pubrec = (Pubrec*)pack;
-	Clients* client = NULL;
+	Pubrec *pubrec = (Pubrec *)pack;
+	Clients *client = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 	int send_pubrel = 1; /* boolean to send PUBREL or not */
 
 	FUNC_ENTRY;
-	client = (Clients*)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
+	client = (Clients *)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
 	Log(LOG_PROTOCOL, 15, NULL, sock, client->clientID, pubrec->msgId);
 
 	/* look for the message by message id in the records of outbound messages for this client */
@@ -515,7 +509,7 @@ int MQTTProtocol_handlePubrecs(void* pack, SOCKET sock, Publications** pubToRemo
 	}
 	else
 	{
-		Messages* m = (Messages*)(client->outboundMsgs->current->content);
+		Messages *m = (Messages *)(client->outboundMsgs->current->content);
 		if (m->qos != 2)
 		{
 			if (pubrec->header.bits.dup == 0)
@@ -531,12 +525,12 @@ int MQTTProtocol_handlePubrecs(void* pack, SOCKET sock, Publications** pubToRemo
 			if (pubrec->MQTTVersion >= MQTTVERSION_5 && pubrec->rc >= MQTTREASONCODE_UNSPECIFIED_ERROR)
 			{
 				Log(TRACE_MIN, -1, "Pubrec error %d received for client %s msgid %d, not sending PUBREL",
-						pubrec->rc, client->clientID, pubrec->msgId);
-				#if !defined(NO_PERSISTENCE)
-					rc = MQTTPersistence_remove(client,
-							(pubrec->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_SENT : PERSISTENCE_PUBLISH_SENT,
-							m->qos, pubrec->msgId);
-				#endif
+					pubrec->rc, client->clientID, pubrec->msgId);
+#if !defined(NO_PERSISTENCE)
+				rc = MQTTPersistence_remove(client,
+											(pubrec->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_SENT : PERSISTENCE_PUBLISH_SENT,
+											m->qos, pubrec->msgId);
+#endif
 				if (pubToRemove != NULL)
 					*pubToRemove = m->publish;
 				else
@@ -568,21 +562,20 @@ int MQTTProtocol_handlePubrecs(void* pack, SOCKET sock, Publications** pubToRemo
 	return rc;
 }
 
-
 /**
  * Process an incoming pubrel packet for a socket
  * @param pack pointer to the publish packet
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handlePubrels(void* pack, SOCKET sock)
+int MQTTProtocol_handlePubrels(void *pack, SOCKET sock)
 {
-	Pubrel* pubrel = (Pubrel*)pack;
-	Clients* client = NULL;
+	Pubrel *pubrel = (Pubrel *)pack;
+	Clients *client = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 
 	FUNC_ENTRY;
-	client = (Clients*)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
+	client = (Clients *)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
 	Log(LOG_PROTOCOL, 17, NULL, sock, client->clientID, pubrel->msgId);
 
 	/* look for the message by message id in the records of inbound messages for this client */
@@ -593,7 +586,7 @@ int MQTTProtocol_handlePubrels(void* pack, SOCKET sock)
 	}
 	else
 	{
-		Messages* m = (Messages*)(client->inboundMsgs->current->content);
+		Messages *m = (Messages *)(client->inboundMsgs->current->content);
 		if (m->qos != 2)
 			Log(TRACE_MIN, 4, NULL, "PUBREL", client->clientID, pubrel->msgId, m->qos);
 		else if (m->nextMessageType != PUBREL)
@@ -619,11 +612,11 @@ int MQTTProtocol_handlePubrels(void* pack, SOCKET sock)
 				publish.properties = m->properties;
 			else
 				Protocol_processPublication(&publish, client, 0); /* only for 3.1.1 and lower */
-			#if !defined(NO_PERSISTENCE)
+#if !defined(NO_PERSISTENCE)
 			rc += MQTTPersistence_remove(client,
-					(m->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_RECEIVED : PERSISTENCE_PUBLISH_RECEIVED,
-					m->qos, pubrel->msgId);
-			#endif
+										 (m->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_RECEIVED : PERSISTENCE_PUBLISH_RECEIVED,
+										 m->qos, pubrel->msgId);
+#endif
 			if (m->MQTTVersion >= MQTTVERSION_5)
 				MQTTProperties_free(&m->properties);
 			if (m->publish)
@@ -645,21 +638,20 @@ int MQTTProtocol_handlePubrels(void* pack, SOCKET sock)
 	return rc;
 }
 
-
 /**
  * Process an incoming pubcomp packet for a socket
  * @param pack pointer to the publish packet
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handlePubcomps(void* pack, SOCKET sock, Publications** pubToRemove)
+int MQTTProtocol_handlePubcomps(void *pack, SOCKET sock, Publications **pubToRemove)
 {
-	Pubcomp* pubcomp = (Pubcomp*)pack;
-	Clients* client = NULL;
+	Pubcomp *pubcomp = (Pubcomp *)pack;
+	Clients *client = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 
 	FUNC_ENTRY;
-	client = (Clients*)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
+	client = (Clients *)(ListFindItem(bstate->clients, &sock, clientSocketCompare)->content);
 	Log(LOG_PROTOCOL, 19, NULL, sock, client->clientID, pubcomp->msgId);
 
 	/* look for the message by message id in the records of outbound messages for this client */
@@ -670,7 +662,7 @@ int MQTTProtocol_handlePubcomps(void* pack, SOCKET sock, Publications** pubToRem
 	}
 	else
 	{
-		Messages* m = (Messages*)(client->outboundMsgs->current->content);
+		Messages *m = (Messages *)(client->outboundMsgs->current->content);
 		if (m->qos != 2)
 			Log(TRACE_MIN, 4, NULL, "PUBCOMP", client->clientID, pubcomp->msgId, m->qos);
 		else
@@ -680,13 +672,13 @@ int MQTTProtocol_handlePubcomps(void* pack, SOCKET sock, Publications** pubToRem
 			else
 			{
 				Log(TRACE_MIN, 6, NULL, "PUBCOMP", client->clientID, pubcomp->msgId);
-				#if !defined(NO_PERSISTENCE)
-					rc = MQTTPersistence_remove(client,
-							(m->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_SENT : PERSISTENCE_PUBLISH_SENT,
-							m->qos, pubcomp->msgId);
-					if (rc != 0)
-						Log(LOG_ERROR, -1, "Error removing PUBCOMP for client id %s msgid %d from persistence", client->clientID, pubcomp->msgId);
-				#endif
+#if !defined(NO_PERSISTENCE)
+				rc = MQTTPersistence_remove(client,
+											(m->MQTTVersion >= MQTTVERSION_5) ? PERSISTENCE_V5_PUBLISH_SENT : PERSISTENCE_PUBLISH_SENT,
+											m->qos, pubcomp->msgId);
+				if (rc != 0)
+					Log(LOG_ERROR, -1, "Error removing PUBCOMP for client id %s msgid %d from persistence", client->clientID, pubcomp->msgId);
+#endif
 				if (pubToRemove != NULL)
 					*pubToRemove = m->publish;
 				else
@@ -705,20 +697,19 @@ int MQTTProtocol_handlePubcomps(void* pack, SOCKET sock, Publications** pubToRem
 	return rc;
 }
 
-
 /**
  * MQTT protocol keepAlive processing.  Sends PINGREQ packets as required.
  * @param now current time
  */
 void MQTTProtocol_keepalive(START_TIME_TYPE now)
 {
-	ListElement* current = NULL;
+	ListElement *current = NULL;
 
 	FUNC_ENTRY;
 	ListNextElement(bstate->clients, &current);
 	while (current)
 	{
-		Clients* client =	(Clients*)(current->content);
+		Clients *client = (Clients *)(current->content);
 		ListNextElement(bstate->clients, &current);
 
 		if (client->connected == 0 || client->keepAliveInterval == 0)
@@ -735,7 +726,7 @@ void MQTTProtocol_keepalive(START_TIME_TYPE now)
 			}
 		}
 		else if (client->ping_due == 1 &&
-			(MQTTTime_difftime(now, client->ping_due_time) >= (DIFF_TIME_TYPE)(client->keepAliveInterval * 1500)))
+				 (MQTTTime_difftime(now, client->ping_due_time) >= (DIFF_TIME_TYPE)(client->keepAliveInterval * 1500)))
 		{
 			/* if the last received time is more recent than the ping due time, we could be receiving a large packet,
 			 * preventing the PINGRESP being received */
@@ -766,7 +757,7 @@ void MQTTProtocol_keepalive(START_TIME_TYPE now)
 			else if (client->ping_due == 0)
 			{
 				Log(TRACE_PROTOCOL, -1, "Couldn't send PINGREQ for client %s on socket %d, noting",
-						client->clientID, client->net.socket);
+					client->clientID, client->net.socket);
 				client->ping_due = 1;
 				client->ping_due_time = now;
 			}
@@ -794,33 +785,32 @@ void MQTTProtocol_keepalive(START_TIME_TYPE now)
 	FUNC_EXIT;
 }
 
-
 /**
  * MQTT retry processing per client
  * @param now current time
  * @param client - the client to which to apply the retry processing
  * @param regardless boolean - retry packets regardless of retry interval (used on reconnect)
  */
-static void MQTTProtocol_retries(START_TIME_TYPE now, Clients* client, int regardless)
+static void MQTTProtocol_retries(START_TIME_TYPE now, Clients *client, int regardless)
 {
-	ListElement* outcurrent = NULL;
+	ListElement *outcurrent = NULL;
 
 	FUNC_ENTRY;
 
 	if (!regardless && client->retryInterval <= 0 && /* 0 or -ive retryInterval turns off retry except on reconnect */
-			client->connect_sent == client->connect_count)
+		client->connect_sent == client->connect_count)
 		goto exit;
 
 	if (regardless)
 		client->connect_count = client->outboundMsgs->count; /* remember the number of messages to retry on connect */
-	else if (client->connect_sent < client->connect_count) /* continue a connect retry which didn't complete first time around */
+	else if (client->connect_sent < client->connect_count)	 /* continue a connect retry which didn't complete first time around */
 		regardless = 1;
 
 	while (client && ListNextElement(client->outboundMsgs, &outcurrent) &&
-		   client->connected && client->good &&        /* client is connected and has no errors */
+		   client->connected && client->good &&		   /* client is connected and has no errors */
 		   Socket_noPendingWrites(client->net.socket)) /* there aren't any previous packets still stacked up on the socket */
 	{
-		Messages* m = (Messages*)(outcurrent->content);
+		Messages *m = (Messages *)(outcurrent->content);
 		if (regardless || MQTTTime_difftime(now, m->lastTouch) > (DIFF_TIME_TYPE)(max(client->retryInterval, 10) * 1000))
 		{
 			if (regardless)
@@ -844,7 +834,7 @@ static void MQTTProtocol_retries(START_TIME_TYPE now, Clients* client, int regar
 				{
 					client->good = 0;
 					Log(TRACE_PROTOCOL, 29, NULL, client->clientID, client->net.socket,
-												Socket_getpeer(client->net.socket));
+						Socket_getpeer(client->net.socket));
 					MQTTProtocol_closeSession(client, 1);
 					client = NULL;
 				}
@@ -862,7 +852,7 @@ static void MQTTProtocol_retries(START_TIME_TYPE now, Clients* client, int regar
 				{
 					client->good = 0;
 					Log(TRACE_PROTOCOL, 29, NULL, client->clientID, client->net.socket,
-							Socket_getpeer(client->net.socket));
+						Socket_getpeer(client->net.socket));
 					MQTTProtocol_closeSession(client, 1);
 					client = NULL;
 				}
@@ -875,7 +865,6 @@ exit:
 	FUNC_EXIT;
 }
 
-
 /**
  * Queue an ack message. This is used when the socket is full (e.g. SSL_ERROR_WANT_WRITE).
  * To be completed/cleared when the socket is no longer full
@@ -884,10 +873,10 @@ exit:
  * @param msgId the msg id of the message we are acknowledging
  * @return the completion code
  */
-int MQTTProtocol_queueAck(Clients* client, int ackType, int msgId)
+int MQTTProtocol_queueAck(Clients *client, int ackType, int msgId)
 {
 	int rc = 0;
-	AckRequest* ackReq = NULL;
+	AckRequest *ackReq = NULL;
 
 	FUNC_ENTRY;
 	ackReq = malloc(sizeof(AckRequest));
@@ -904,7 +893,6 @@ int MQTTProtocol_queueAck(Clients* client, int ackType, int msgId)
 	return rc;
 }
 
-
 /**
  * MQTT retry protocol and socket pending writes processing.
  * @param now current time
@@ -913,14 +901,14 @@ int MQTTProtocol_queueAck(Clients* client, int ackType, int msgId)
  */
 void MQTTProtocol_retry(START_TIME_TYPE now, int doRetry, int regardless)
 {
-	ListElement* current = NULL;
+	ListElement *current = NULL;
 
 	FUNC_ENTRY;
 	ListNextElement(bstate->clients, &current);
 	/* look through the outbound message list of each client, checking to see if a retry is necessary */
 	while (current)
 	{
-		Clients* client = (Clients*)(current->content);
+		Clients *client = (Clients *)(current->content);
 		ListNextElement(bstate->clients, &current);
 		if (client->connected == 0)
 			continue;
@@ -937,12 +925,11 @@ void MQTTProtocol_retry(START_TIME_TYPE now, int doRetry, int regardless)
 	FUNC_EXIT;
 }
 
-
 /**
  * Free a client structure
  * @param client the client data to free
  */
-void MQTTProtocol_freeClient(Clients* client)
+void MQTTProtocol_freeClient(Clients *client)
 {
 	FUNC_ENTRY;
 	/* free up pending message lists here, and any other allocated data */
@@ -951,18 +938,18 @@ void MQTTProtocol_freeClient(Clients* client)
 	ListFree(client->messageQueue);
 	ListFree(client->outboundQueue);
 	free(client->clientID);
-        client->clientID = NULL;
+	client->clientID = NULL;
 	if (client->will)
 	{
 		free(client->will->payload);
 		free(client->will->topic);
 		free(client->will);
-                client->will = NULL;
+		client->will = NULL;
 	}
 	if (client->username)
-		free((void*)client->username);
+		free((void *)client->username);
 	if (client->password)
-		free((void*)client->password);
+		free((void *)client->password);
 	if (client->httpProxy)
 		free(client->httpProxy);
 	if (client->httpsProxy)
@@ -975,46 +962,129 @@ void MQTTProtocol_freeClient(Clients* client)
 	if (client->sslopts)
 	{
 		if (client->sslopts->trustStore)
-			free((void*)client->sslopts->trustStore);
+			free((void *)client->sslopts->trustStore);
 		if (client->sslopts->keyStore)
-			free((void*)client->sslopts->keyStore);
+			free((void *)client->sslopts->keyStore);
 		if (client->sslopts->privateKey)
-			free((void*)client->sslopts->privateKey);
+			free((void *)client->sslopts->privateKey);
 		if (client->sslopts->privateKeyPassword)
-			free((void*)client->sslopts->privateKeyPassword);
+			free((void *)client->sslopts->privateKeyPassword);
 		if (client->sslopts->enabledCipherSuites)
-			free((void*)client->sslopts->enabledCipherSuites);
+			free((void *)client->sslopts->enabledCipherSuites);
 		if (client->sslopts->struct_version >= 2)
 		{
 			if (client->sslopts->CApath)
-				free((void*)client->sslopts->CApath);
+				free((void *)client->sslopts->CApath);
 		}
 		if (client->sslopts->struct_version >= 5)
 		{
 			if (client->sslopts->protos)
-				free((void*)client->sslopts->protos);
+				free((void *)client->sslopts->protos);
 		}
 		free(client->sslopts);
-			client->sslopts = NULL;
+		client->sslopts = NULL;
+	}
+#elif defined(PAHO_ASL)
+
+	if (client->ep_config)
+	{
+		asl_endpoint_configuration *ep_config = client->ep_config;
+		if (ep_config->ciphersuites)
+		{
+			free((void *)ep_config->ciphersuites);
+			ep_config->ciphersuites = NULL;
+		}
+
+		if (ep_config->pkcs11.module_path)
+		{
+			free((void *)ep_config->pkcs11.module_path);
+			ep_config->pkcs11.module_path = NULL;
+		}
+
+		if (ep_config->pkcs11.module_pin)
+		{
+			free((void *)ep_config->pkcs11.module_pin);
+			ep_config->pkcs11.module_pin = NULL;
+		}
+
+		ep_config->pkcs11.use_for_all = false;
+
+		if (ep_config->psk.key)
+		{
+			free((void *)ep_config->psk.key);
+			ep_config->psk.key = NULL;
+		}
+
+		if (ep_config->psk.identity)
+		{
+			free((void *)ep_config->psk.identity);
+			ep_config->psk.identity = NULL;
+		}
+
+		ep_config->psk.enable_psk = false;
+		ep_config->psk.enable_cert_auth = false;
+		ep_config->psk.use_external_callbacks = false;
+		ep_config->psk.callback_ctx = NULL;
+		ep_config->psk.psk_client_cb = NULL;
+		ep_config->psk.psk_server_cb = NULL;
+
+		if (ep_config->device_certificate_chain.buffer)
+		{
+			free((void *)ep_config->device_certificate_chain.buffer);
+			ep_config->device_certificate_chain.buffer = NULL;
+		}
+		ep_config->device_certificate_chain.size = 0;
+
+		if (ep_config->private_key.buffer)
+		{
+			free((void *)ep_config->private_key.buffer);
+			ep_config->private_key.buffer = NULL;
+		}
+		ep_config->private_key.size = 0;
+
+		if (ep_config->private_key.additional_key_buffer)
+		{
+			free((void *)ep_config->private_key.additional_key_buffer);
+			ep_config->private_key.additional_key_buffer = NULL;
+		}
+		ep_config->private_key.additional_key_size = 0;
+
+		if (ep_config->root_certificate.buffer)
+		{
+			free((void *)ep_config->root_certificate.buffer);
+			ep_config->root_certificate.buffer = NULL;
+		}
+		ep_config->root_certificate.size = 0;
+
+		if (ep_config->keylog_file)
+		{
+			free((void *)ep_config->keylog_file);
+			ep_config->keylog_file = NULL;
+		}
+
+		ep_config->mutual_authentication = false;
+		ep_config->key_exchange_method = 0; // Assuming 0 is a valid default value
+
+		free(ep_config);
+		ep_config = NULL;
 	}
 #endif
 	/* don't free the client structure itself... this is done elsewhere */
 	FUNC_EXIT;
 }
 
-
 /**
  * Empty a message list, leaving it able to accept new messages
  * @param msgList the message list to empty
  */
-void MQTTProtocol_emptyMessageList(List* msgList)
+void MQTTProtocol_emptyMessageList(List *msgList)
 {
-	ListElement* current = NULL;
+	ListElement *current = NULL;
 
 	FUNC_ENTRY;
 	while (ListNextElement(msgList, &current))
 	{
-		Messages* m = (Messages*)(current->content);
+		Messages *m = (Messages *)(current->content);
 		MQTTProtocol_removePublication(m->publish);
 		if (m->MQTTVersion >= MQTTVERSION_5)
 			MQTTProperties_free(&m->properties);
@@ -1023,19 +1093,17 @@ void MQTTProtocol_emptyMessageList(List* msgList)
 	FUNC_EXIT;
 }
 
-
 /**
  * Empty and free up all storage used by a message list
  * @param msgList the message list to empty and free
  */
-void MQTTProtocol_freeMessageList(List* msgList)
+void MQTTProtocol_freeMessageList(List *msgList)
 {
 	FUNC_ENTRY;
 	MQTTProtocol_emptyMessageList(msgList);
 	ListFree(msgList);
 	FUNC_EXIT;
 }
-
 
 /**
  * Callback that is invoked when the socket is available for writing.
@@ -1045,36 +1113,36 @@ void MQTTProtocol_freeMessageList(List* msgList)
  */
 void MQTTProtocol_writeAvailable(SOCKET socket)
 {
-	Clients* client = NULL;
-	ListElement* current = NULL;
+	Clients *client = NULL;
+	ListElement *current = NULL;
 	int rc = 0;
 
 	FUNC_ENTRY;
 
-	client = (Clients*)(ListFindItem(bstate->clients, &socket, clientSocketCompare)->content);
+	client = (Clients *)(ListFindItem(bstate->clients, &socket, clientSocketCompare)->content);
 
 	current = NULL;
 	while (ListNextElement(client->outboundQueue, &current) && rc == 0)
 	{
-		AckRequest* ackReq = (AckRequest*)(current->content);
+		AckRequest *ackReq = (AckRequest *)(current->content);
 
 		switch (ackReq->ackType)
 		{
-			case PUBACK:
-				rc = MQTTPacket_send_puback(client->MQTTVersion, ackReq->messageId, &client->net, client->clientID);
-				break;
-			case PUBREC:
-				rc = MQTTPacket_send_pubrec(client->MQTTVersion, ackReq->messageId, &client->net, client->clientID);
-				break;
-			case PUBREL:
-				rc = MQTTPacket_send_pubrel(client->MQTTVersion, ackReq->messageId, 0, &client->net, client->clientID);
-				break;
-			case PUBCOMP:
-				rc = MQTTPacket_send_pubcomp(client->MQTTVersion, ackReq->messageId, &client->net, client->clientID);
-				break;
-			default:
-				Log(LOG_ERROR, -1, "unknown ACK type %d, dropping msg", ackReq->ackType);
-		break;
+		case PUBACK:
+			rc = MQTTPacket_send_puback(client->MQTTVersion, ackReq->messageId, &client->net, client->clientID);
+			break;
+		case PUBREC:
+			rc = MQTTPacket_send_pubrec(client->MQTTVersion, ackReq->messageId, &client->net, client->clientID);
+			break;
+		case PUBREL:
+			rc = MQTTPacket_send_pubrel(client->MQTTVersion, ackReq->messageId, 0, &client->net, client->clientID);
+			break;
+		case PUBCOMP:
+			rc = MQTTPacket_send_pubcomp(client->MQTTVersion, ackReq->messageId, &client->net, client->clientID);
+			break;
+		default:
+			Log(LOG_ERROR, -1, "unknown ACK type %d, dropping msg", ackReq->ackType);
+			break;
 		}
 	}
 
@@ -1083,42 +1151,41 @@ void MQTTProtocol_writeAvailable(SOCKET socket)
 }
 
 /**
-* Copy no more than dest_size -1 characters from the string pointed to by src to the array pointed to by dest.
-* The destination string will always be null-terminated.
-* @param dest the array which characters copy to
-* @param src the source string which characters copy from
-* @param dest_size the size of the memory pointed to by dest: copy no more than this -1 (allow for null).  Must be >= 1
-* @return the destination string pointer
-*/
-char* MQTTStrncpy(char *dest, const char *src, size_t dest_size)
+ * Copy no more than dest_size -1 characters from the string pointed to by src to the array pointed to by dest.
+ * The destination string will always be null-terminated.
+ * @param dest the array which characters copy to
+ * @param src the source string which characters copy from
+ * @param dest_size the size of the memory pointed to by dest: copy no more than this -1 (allow for null).  Must be >= 1
+ * @return the destination string pointer
+ */
+char *MQTTStrncpy(char *dest, const char *src, size_t dest_size)
 {
-  size_t count = dest_size;
-  char *temp = dest;
+	size_t count = dest_size;
+	char *temp = dest;
 
-  FUNC_ENTRY;
-  if (dest_size < strlen(src))
-    Log(TRACE_MIN, -1, "the src string is truncated");
+	FUNC_ENTRY;
+	if (dest_size < strlen(src))
+		Log(TRACE_MIN, -1, "the src string is truncated");
 
-  /* We must copy only the first (dest_size - 1) bytes */
-  while (count > 1 && (*temp++ = *src++))
-    count--;
+	/* We must copy only the first (dest_size - 1) bytes */
+	while (count > 1 && (*temp++ = *src++))
+		count--;
 
-  *temp = '\0';
+	*temp = '\0';
 
-  FUNC_EXIT;
-  return dest;
+	FUNC_EXIT;
+	return dest;
 }
 
-
 /**
-* Duplicate a string, safely, allocating space on the heap
-* @param src the source string which characters copy from
-* @return the duplicated, allocated string
-*/
-char* MQTTStrdup(const char* src)
+ * Duplicate a string, safely, allocating space on the heap
+ * @param src the source string which characters copy from
+ * @return the duplicated, allocated string
+ */
+char *MQTTStrdup(const char *src)
 {
 	size_t mlen = strlen(src) + 1;
-	char* temp = malloc(mlen);
+	char *temp = malloc(mlen);
 	if (temp)
 		MQTTStrncpy(temp, src, mlen);
 	else

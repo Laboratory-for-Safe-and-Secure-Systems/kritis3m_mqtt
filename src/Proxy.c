@@ -20,14 +20,14 @@
 // for timeout process in Proxy_connect()
 #include <time.h>
 #if defined(_WIN32) || defined(_WIN64)
-	#include <windows.h>
-	/* Windows doesn't have strtok_r, so remap it to strtok_s */
-	#define strtok_r strtok_s
-	#if defined(_MSC_VER) && _MSC_VER < 1900
-		#define snprintf _snprintf
-	#endif
+#include <windows.h>
+/* Windows doesn't have strtok_r, so remap it to strtok_s */
+#define strtok_r strtok_s
+#if defined(_MSC_VER) && _MSC_VER < 1900
+#define snprintf _snprintf
+#endif
 #else
-	#include <unistd.h>
+#include <unistd.h>
 #endif
 
 #include "Log.h"
@@ -38,11 +38,13 @@
 #if defined(OPENSSL)
 #include "SSLSocket.h"
 #include <openssl/rand.h>
+#elif defined(PAHO_ASL)
+#include "ASLSocket.h"
 #endif /* defined(OPENSSL) */
+
 #include "Socket.h"
 #include "Base64.h"
 #include "ctype.h"
-
 
 /**
  * Notify the IP address and port of the endpoint to proxy, and wait connection to endpoint.
@@ -57,7 +59,7 @@
  */
 int Proxy_connect(networkHandles *net, int ssl, const char *hostname)
 {
-	int port, i, rc = 0, buf_len=0;
+	int port, i, rc = 0, buf_len = 0;
 	char *buf = NULL;
 	size_t hostname_len, actual_len = 0;
 	time_t current, timeout;
@@ -65,53 +67,60 @@ int Proxy_connect(networkHandles *net, int ssl, const char *hostname)
 
 	FUNC_ENTRY;
 	hostname_len = MQTTProtocol_addressPort(hostname, &port, NULL, PROXY_DEFAULT_PORT);
-	for ( i = 0; i < 2; ++i ) {
+	for (i = 0; i < 2; ++i)
+	{
 #if defined(OPENSSL)
-		if(ssl) {
-			if (net->https_proxy_auth) {
-				buf_len = snprintf( buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
-					"Host: %.*s\r\n"
-					"Proxy-authorization: Basic %s\r\n"
-					"\r\n",
-					(int)hostname_len, hostname, port,
-					(int)hostname_len, hostname, net->https_proxy_auth);
+		if (ssl)
+		{
+			if (net->https_proxy_auth)
+			{
+				buf_len = snprintf(buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
+														 "Host: %.*s\r\n"
+														 "Proxy-authorization: Basic %s\r\n"
+														 "\r\n",
+								   (int)hostname_len, hostname, port,
+								   (int)hostname_len, hostname, net->https_proxy_auth);
 			}
-			else {
-				buf_len = snprintf( buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
-					"Host: %.*s\r\n"
-					"\r\n",
-					(int)hostname_len, hostname, port,
-					(int)hostname_len, hostname);
+			else
+			{
+				buf_len = snprintf(buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
+														 "Host: %.*s\r\n"
+														 "\r\n",
+								   (int)hostname_len, hostname, port,
+								   (int)hostname_len, hostname);
 			}
 		}
-		else {
+		else
+		{
 #endif
-			if (net->http_proxy_auth) {
-				buf_len = snprintf( buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
-					"Host: %.*s\r\n"
-					"Proxy-authorization: Basic %s\r\n"
-					"\r\n",
-					(int)hostname_len, hostname, port,
-					(int)hostname_len, hostname, net->http_proxy_auth);
+			if (net->http_proxy_auth)
+			{
+				buf_len = snprintf(buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
+														 "Host: %.*s\r\n"
+														 "Proxy-authorization: Basic %s\r\n"
+														 "\r\n",
+								   (int)hostname_len, hostname, port,
+								   (int)hostname_len, hostname, net->http_proxy_auth);
 			}
-			else {
-				buf_len = snprintf( buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
-					"Host: %.*s\r\n"
-					"\r\n",
-					(int)hostname_len, hostname, port,
-					(int)hostname_len, hostname);
+			else
+			{
+				buf_len = snprintf(buf, (size_t)buf_len, "CONNECT %.*s:%d HTTP/1.1\r\n"
+														 "Host: %.*s\r\n"
+														 "\r\n",
+								   (int)hostname_len, hostname, port,
+								   (int)hostname_len, hostname);
 			}
 #if defined(OPENSSL)
 		}
 #endif
-		if ( i==0 && buf_len > 0 ) {
+		if (i == 0 && buf_len > 0)
+		{
 			++buf_len;
-			if ((buf = malloc( buf_len )) == NULL)
+			if ((buf = malloc(buf_len)) == NULL)
 			{
 				rc = PAHO_MEMORY_ERROR;
 				goto exit;
 			}
-
 		}
 	}
 	Log(TRACE_PROTOCOL, -1, "Proxy_connect: \"%s\"", buf);
@@ -123,16 +132,20 @@ int Proxy_connect(networkHandles *net, int ssl, const char *hostname)
 	time(&timeout);
 	timeout += (time_t)10;
 
-	while(1) {
+	while (1)
+	{
 		buf = Socket_getdata(net->socket, (size_t)12, &actual_len, &rc);
-		if(actual_len) {
-			if ( (strncmp( buf, "HTTP/1.0 200", 12 ) != 0) &&  (strncmp( buf, "HTTP/1.1 200", 12 ) != 0) )
+		if (actual_len)
+		{
+			if ((strncmp(buf, "HTTP/1.0 200", 12) != 0) && (strncmp(buf, "HTTP/1.1 200", 12) != 0))
 				rc = SOCKET_ERROR;
 			break;
 		}
-		else {
+		else
+		{
 			time(&current);
-			if(current > timeout) {
+			if (current > timeout)
+			{
 				rc = SOCKET_ERROR;
 				break;
 			}
@@ -158,7 +171,6 @@ exit:
 	return rc;
 }
 
-
 /**
  * Check the dest parameter against the no_proxy blacklist
  *
@@ -173,17 +185,17 @@ exit:
  * @param no_proxy the no_proxy list, probably from the environment
  * @return 1 - use the proxy, 0 - don't use the proxy
  */
-int Proxy_noProxy(const char* dest, char* no_proxy)
+int Proxy_noProxy(const char *dest, char *no_proxy)
 {
-	char* saveptr = NULL;
-	char* curtok = NULL;
+	char *saveptr = NULL;
+	char *curtok = NULL;
 	int port = 0;
 	int destport = 0;
 	int port_matches = 0;
 	size_t hostlen = 0;
 	size_t desthostlen = 0;
 	int rc = 1;
-	char* no_proxy_list = NULL;
+	char *no_proxy_list = NULL;
 
 	if ((no_proxy_list = MQTTStrdup(no_proxy)) == NULL)
 	{
@@ -194,10 +206,10 @@ int Proxy_noProxy(const char* dest, char* no_proxy)
 	curtok = strtok_r(no_proxy_list, ",", &saveptr);
 	while (curtok)
 	{
-		char* host = curtok;
+		char *host = curtok;
 		int matched = 0;
 		int pos = 1;
-		const char* topic;
+		const char *topic;
 
 		if (curtok == NULL)
 			break;
@@ -255,7 +267,6 @@ exit:
 	return rc;
 }
 
-
 /**
  * Allow user or password characters to be expressed in the form of %XX, XX being the
  * hexadecimal value of the character. This will avoid problems when a user code or a password
@@ -264,7 +275,7 @@ exit:
  * @param p1 input string
  * @param basic_auth_in_len
  */
-void Proxy_specialChars(char* p0, char* p1, b64_size_t *basic_auth_in_len)
+void Proxy_specialChars(char *p0, char *p1, b64_size_t *basic_auth_in_len)
 {
 	while (*p1 != '@')
 	{
@@ -288,7 +299,6 @@ void Proxy_specialChars(char* p0, char* p1, b64_size_t *basic_auth_in_len)
 	*p0 = 0x0;
 }
 
-
 /**
  * Set the HTTP proxy for connecting
  * Examples of proxy settings:
@@ -302,7 +312,7 @@ void Proxy_specialChars(char* p0, char* p1, b64_size_t *basic_auth_in_len)
  * @param prefix expected URI prefix: http:// or https://
  * @return 0 on success, non-zero otherwise
  */
-int Proxy_setHTTPProxy(Clients* aClient, char* source, char** dest, char** auth_dest, char* prefix)
+int Proxy_setHTTPProxy(Clients *aClient, char *source, char **dest, char **auth_dest, char *prefix)
 {
 	b64_size_t basic_auth_in_len, basic_auth_out_len;
 	b64_data_t *basic_auth;
@@ -329,15 +339,15 @@ int Proxy_setHTTPProxy(Clients* aClient, char* source, char** dest, char** auth_
 			basic_auth_in_len = (b64_size_t)(p1 - source);
 			if (basic_auth_in_len > 0)
 			{
-				basic_auth = (b64_data_t *)malloc(sizeof(char)*(basic_auth_in_len+1));
+				basic_auth = (b64_data_t *)malloc(sizeof(char) * (basic_auth_in_len + 1));
 				if (!basic_auth)
 				{
 					rc = PAHO_MEMORY_ERROR;
 					goto exit;
 				}
-				Proxy_specialChars((char*)basic_auth, source, &basic_auth_in_len);
+				Proxy_specialChars((char *)basic_auth, source, &basic_auth_in_len);
 				basic_auth_out_len = Base64_encodeLength(basic_auth, basic_auth_in_len) + 1; /* add 1 for trailing NULL */
-				if ((*auth_dest = (char *)malloc(sizeof(char)*basic_auth_out_len)) == NULL)
+				if ((*auth_dest = (char *)malloc(sizeof(char) * basic_auth_out_len)) == NULL)
 				{
 					free(basic_auth);
 					rc = PAHO_MEMORY_ERROR;

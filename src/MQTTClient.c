@@ -72,6 +72,10 @@
 #else
 #define URI_SSL "ssl://"
 #define URI_MQTTS "mqtts://"
+#if defined(PAHO_ASL)
+#define URI_TLS "tls://"
+#endif
+
 #endif
 
 #include "OsWrapper.h"
@@ -296,10 +300,8 @@ typedef struct
 	char *serverURI;
 	const char *currentServerURI; /* when using HA options, set the currently used serverURI */
 	int unixsock;
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 	int ssl;
-#elif defined(PAHO_ASL)
-
 #endif
 
 	int websocket;
@@ -401,11 +403,14 @@ int MQTTClient_createWithOptions(MQTTClient *handle, const char *serverURI, cons
 	if (strstr(serverURI, "://") != NULL)
 	{
 		if (strncmp(URI_TCP, serverURI, strlen(URI_TCP)) != 0 && strncmp(URI_MQTT, serverURI, strlen(URI_MQTT)) != 0 && strncmp(URI_WS, serverURI, strlen(URI_WS)) != 0
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 			&& strncmp(URI_SSL, serverURI, strlen(URI_SSL)) != 0 && strncmp(URI_MQTTS, serverURI, strlen(URI_MQTTS)) != 0 && strncmp(URI_WSS, serverURI, strlen(URI_WSS)) != 0
 #endif
 #if defined(UNIXSOCK)
 			&& strncmp(URI_UNIX, serverURI, strlen(URI_UNIX)) != 0
+#endif
+#if defined(PAHO_ASL)
+			&& strncmp(URI_TLS, serverURI, strlen(URI_TLS)) != 0
 #endif
 		)
 		{
@@ -434,6 +439,8 @@ int MQTTClient_createWithOptions(MQTTClient *handle, const char *serverURI, cons
 		handles = ListInitialize();
 #if defined(OPENSSL)
 		SSLSocket_initialize();
+#elif defined(PAHO_ASL)
+		ASLSocket_initialize();
 #endif
 		library_initialized = 1;
 	}
@@ -457,7 +464,7 @@ int MQTTClient_createWithOptions(MQTTClient *handle, const char *serverURI, cons
 	}
 	else if (strncmp(URI_SSL, serverURI, strlen(URI_SSL)) == 0)
 	{
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		serverURI += strlen(URI_SSL);
 		m->ssl = 1;
 #else
@@ -467,7 +474,7 @@ int MQTTClient_createWithOptions(MQTTClient *handle, const char *serverURI, cons
 	}
 	else if (strncmp(URI_MQTTS, serverURI, strlen(URI_MQTTS)) == 0)
 	{
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		serverURI += strlen(URI_MQTTS);
 		m->ssl = 1;
 #else
@@ -477,7 +484,7 @@ int MQTTClient_createWithOptions(MQTTClient *handle, const char *serverURI, cons
 	}
 	else if (strncmp(URI_WSS, serverURI, strlen(URI_WSS)) == 0)
 	{
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		serverURI += strlen(URI_WSS);
 		m->ssl = 1;
 		m->websocket = 1;
@@ -493,6 +500,19 @@ int MQTTClient_createWithOptions(MQTTClient *handle, const char *serverURI, cons
 		m->unixsock = 1;
 	}
 #endif
+#if defined(PAHO_ASL)
+	else if (strncmp(URI_TLS, serverURI, strlen(URI_TLS)) == 0)
+	{
+		serverURI += strlen(URI_TLS);
+		m->ssl = 1;
+	}
+	else
+	{
+		rc = MQTTCLIENT_SSL_NOT_SUPPORTED;
+		goto exit;
+	}
+#endif
+
 	m->serverURI = MQTTStrdup(serverURI);
 	ListAppend(handles, m, sizeof(MQTTClients));
 
@@ -990,6 +1010,22 @@ static thread_return_type WINAPI MQTTClient_run(void *n)
 					Thread_post_sem(m->connect_sem);
 				}
 			}
+#elif defined(PAHO_ASL)
+
+			else if (m->c->connect_state == SSL_IN_PROGRESS)
+			{
+				rc = ASLSocket_connect(m->c->net.ssl, m->c->net.socket, m->serverURI, 0, NULL, NULL);
+				if (rc == 1 || rc == SSL_FATAL)
+				{
+					// no session reusage
+					// if (rc == 1 && (m->c->cleansession == 0 && m->c->cleanstart == 0) && m->c->session == NULL)
+					// 	m->c->session = SSL_get1_session(m->c->net.ssl);
+					m->rc = rc;
+					Log(TRACE_MIN, -1, "Posting connect semaphore for SSL client %s rc %d", m->c->clientID, m->rc);
+					m->c->connect_state = NOT_IN_PROGRESS;
+					Thread_post_sem(m->connect_sem);
+				}
+			}
 #endif
 			else if (m->c->connect_state == WEBSOCKET_IN_PROGRESS)
 			{
@@ -1096,11 +1132,16 @@ static void MQTTClient_closeSession(Clients *client, enum MQTTReasonCodes reason
 		SSL_SESSION_free(client->session); /* is a no-op if session is NULL */
 		client->session = NULL;			   /* show the session has been freed */
 		SSLSocket_close(&client->net);
+#elif defined(PAHO_ASL)
+		// we dont use session
+		//  SSL_SESSION_free(client->session); /* is a no-op if session is NULL */
+		ASLSocket_close(&client->net);
+
 #endif
 		Paho_thread_unlock_mutex(socket_mutex);
 		Socket_close(client->net.socket);
 		client->net.socket = 0;
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		client->net.ssl = NULL;
 #endif
 	}
@@ -1219,7 +1260,7 @@ static MQTTResponse MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_c
 	}
 
 	Log(TRACE_MIN, -1, "Connecting to serverURI %s with MQTT version %d", serverURI, MQTTVersion);
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 #if defined(__GNUC__) && defined(__linux__)
 	rc = MQTTProtocol_connect(serverURI, m->c, m->unixsock, m->ssl, m->websocket, MQTTVersion, connectProperties, willProperties,
 							  millisecsTimeout - MQTTTime_elapsed(start));
@@ -1269,9 +1310,7 @@ static MQTTResponse MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_c
 			}
 
 			hostname_len = MQTTProtocol_addressPort(serverURI, &port1, &topic, MQTT_DEFAULT_PORT);
-			setSocketForSSLrc = SSLSocket_setSocketForSSL(&m->c->net, m->c->sslopts,
-														  serverURI, hostname_len);
-
+			setSocketForSSLrc = SSLSocket_setSocketForSSL(&m->c->net, m->c->sslopts, serverURI, hostname_len);
 			if (setSocketForSSLrc != MQTTCLIENT_SUCCESS)
 			{
 				if (m->c->session != NULL)
@@ -1317,7 +1356,73 @@ static MQTTResponse MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_c
 				goto exit;
 			}
 		}
+
 #elif defined(PAHO_ASL)
+		if (m->ssl)
+		{
+			int port1;
+			size_t hostname_len;
+			const char *topic;
+			int setSocketForSSLrc = 0;
+
+			if (m->c->net.https_proxy)
+			{
+				m->c->connect_state = PROXY_CONNECT_IN_PROGRESS;
+				if ((rc = Proxy_connect(&m->c->net, 1, serverURI)) == SOCKET_ERROR)
+					goto exit;
+			}
+
+			hostname_len = MQTTProtocol_addressPort(serverURI, &port1, &topic, MQTT_DEFAULT_PORT);
+
+			setSocketForSSLrc = ASLSocket_setSocketForTLS(&m->c->net, m->c->ep_config, serverURI, hostname_len);
+
+			if (setSocketForSSLrc != MQTTCLIENT_SUCCESS)
+			{
+				// with asl, we dont store WOLFSSL_SESSION, meaning, that we have to do clean realloc of asl_session
+				// if (m->c->session != NULL)
+				// 	if ((rc = SSL_set_session(m->c->net.ssl, m->c->session)) != 1)
+				// 		Log(TRACE_MIN, -1, "Failed to set SSL session with stored data, non critical");
+
+				// see openssl, which checks between callbacks and no callbacks for errmsg, we dont check that
+				rc = ASLSocket_connect(m->c->net.ssl, m->c->net.socket, serverURI, 0, NULL, NULL);
+
+				if (rc == TCPSOCKET_INTERRUPTED)
+					m->c->connect_state = SSL_IN_PROGRESS; /* the connect is still in progress */
+				else if (rc == SSL_FATAL)
+				{
+					rc = SOCKET_ERROR;
+					goto exit;
+				}
+				else if (rc == 1)
+				{
+					if (m->websocket)
+					{
+						m->c->connect_state = WEBSOCKET_IN_PROGRESS;
+						rc = WebSocket_connect(&m->c->net, 1, serverURI);
+						if (rc == SOCKET_ERROR)
+							goto exit;
+					}
+					else
+					{
+						rc = MQTTCLIENT_SUCCESS;
+						m->c->connect_state = WAIT_FOR_CONNACK;
+						if (MQTTPacket_send_connect(m->c, MQTTVersion, connectProperties, willProperties) == SOCKET_ERROR)
+						{
+							rc = SOCKET_ERROR;
+							goto exit;
+						}
+						// here the session object is stored for fast restart, we dont use it, due to lack of WOLFSSL_SESSION supp
+						// if ((m->c->cleansession == 0 && m->c->cleanstart == 0) && m->c->session == NULL)
+						// 	m->c->session = SSL_get1_session(m->c->net.ssl);
+					}
+				}
+			}
+			else
+			{
+				rc = SOCKET_ERROR;
+				goto exit;
+			}
+		}
 
 #endif
 		else
@@ -1363,6 +1468,41 @@ static MQTTResponse MQTTClient_connectURIVersion(MQTTClient handle, MQTTClient_c
 		}
 		if ((m->c->cleansession == 0 && m->c->cleanstart == 0) && m->c->session == NULL)
 			m->c->session = SSL_get1_session(m->c->net.ssl);
+
+		if (m->websocket)
+		{
+			/* wait for websocket connect */
+			m->c->connect_state = WEBSOCKET_IN_PROGRESS;
+			rc = WebSocket_connect(&m->c->net, 1, serverURI);
+			if (rc != 1)
+			{
+				rc = SOCKET_ERROR;
+				goto exit;
+			}
+		}
+		else
+		{
+			m->c->connect_state = WAIT_FOR_CONNACK; /* TCP connect completed, in which case send the MQTT connect packet */
+			if (MQTTPacket_send_connect(m->c, MQTTVersion, connectProperties, willProperties) == SOCKET_ERROR)
+			{
+				rc = SOCKET_ERROR;
+				goto exit;
+			}
+		}
+	}
+#elif defined(PAHO_ASL)
+	if (m->c->connect_state == SSL_IN_PROGRESS) /* SSL connect sent - wait for completion */
+	{
+		Paho_thread_unlock_mutex(mqttclient_mutex);
+		MQTTClient_waitfor(handle, CONNECT, &rc, millisecsTimeout - MQTTTime_elapsed(start));
+		Paho_thread_lock_mutex(mqttclient_mutex);
+		if (rc != 1)
+		{
+			rc = SOCKET_ERROR;
+			goto exit;
+		}
+		// if ((m->c->cleansession == 0 && m->c->cleanstart == 0) && m->c->session == NULL)
+		// 	m->c->session = SSL_get1_session(m->c->net.ssl);
 
 		if (m->websocket)
 		{
@@ -1654,6 +1794,223 @@ static MQTTResponse MQTTClient_connectURI(MQTTClient handle, MQTTClient_connectO
 			m->c->sslopts->protos_len = options->ssl->protos_len;
 		}
 	}
+#elif defined(PAHO_ASL)
+	// reset internal ep_config
+	if (m->c->ep_config)
+	{
+		asl_endpoint_configuration *ep_config = m->c->ep_config;
+		if (ep_config->ciphersuites)
+		{
+			free((void *)ep_config->ciphersuites);
+			ep_config->ciphersuites = NULL;
+		}
+
+		if (ep_config->pkcs11.module_path)
+		{
+			free((void *)ep_config->pkcs11.module_path);
+			ep_config->pkcs11.module_path = NULL;
+		}
+
+		if (ep_config->pkcs11.module_pin)
+		{
+			free((void *)ep_config->pkcs11.module_pin);
+			ep_config->pkcs11.module_pin = NULL;
+		}
+
+		ep_config->pkcs11.use_for_all = false;
+
+		if (ep_config->psk.key)
+		{
+			free((void *)ep_config->psk.key);
+			ep_config->psk.key = NULL;
+		}
+
+		if (ep_config->psk.identity)
+		{
+			free((void *)ep_config->psk.identity);
+			ep_config->psk.identity = NULL;
+		}
+
+		ep_config->psk.enable_psk = false;
+		ep_config->psk.enable_cert_auth = false;
+		ep_config->psk.use_external_callbacks = false;
+		ep_config->psk.callback_ctx = NULL;
+		ep_config->psk.psk_client_cb = NULL;
+		ep_config->psk.psk_server_cb = NULL;
+
+		if (ep_config->device_certificate_chain.buffer)
+		{
+			free((void *)ep_config->device_certificate_chain.buffer);
+			ep_config->device_certificate_chain.buffer = NULL;
+		}
+		ep_config->device_certificate_chain.size = 0;
+
+		if (ep_config->private_key.buffer)
+		{
+			free((void *)ep_config->private_key.buffer);
+			ep_config->private_key.buffer = NULL;
+		}
+		ep_config->private_key.size = 0;
+
+		if (ep_config->private_key.additional_key_buffer)
+		{
+			free((void *)ep_config->private_key.additional_key_buffer);
+			ep_config->private_key.additional_key_buffer = NULL;
+		}
+		ep_config->private_key.additional_key_size = 0;
+
+		if (ep_config->root_certificate.buffer)
+		{
+			free((void *)ep_config->root_certificate.buffer);
+			ep_config->root_certificate.buffer = NULL;
+		}
+		ep_config->root_certificate.size = 0;
+
+		if (ep_config->keylog_file)
+		{
+			free((void *)ep_config->keylog_file);
+			ep_config->keylog_file = NULL;
+		}
+
+		ep_config->mutual_authentication = false;
+		ep_config->key_exchange_method = 0; // Assuming 0 is a valid default value
+
+		free(ep_config);
+		ep_config = NULL;
+	}
+
+	if (options->struct_version != 0 && options->ep_config)
+	{
+		if ((m->c->ep_config = malloc(sizeof(asl_endpoint_configuration))) == NULL)
+		{
+			rc.reasonCode = PAHO_MEMORY_ERROR;
+			goto exit;
+		}
+		memset(m->c->ep_config, '\0', sizeof(asl_endpoint_configuration));
+
+		// Clone basic properties
+		m->c->ep_config->mutual_authentication = options->ep_config->mutual_authentication;
+		m->c->ep_config->key_exchange_method = options->ep_config->key_exchange_method;
+
+		// Clone ciphersuites string
+		if (options->ep_config->ciphersuites != NULL)
+		{
+			m->c->ep_config->ciphersuites = MQTTStrdup(options->ep_config->ciphersuites);
+			if (m->c->ep_config->ciphersuites == NULL)
+			{
+				goto exit;
+			}
+		}
+
+		// Clone PKCS11 configuration
+		if (options->ep_config->pkcs11.module_path != NULL)
+		{
+			m->c->ep_config->pkcs11.module_path = MQTTStrdup(options->ep_config->pkcs11.module_path);
+			if (m->c->ep_config->pkcs11.module_path == NULL)
+			{
+				goto exit;
+			}
+		}
+
+		if (options->ep_config->pkcs11.module_pin != NULL)
+		{
+			m->c->ep_config->pkcs11.module_pin = MQTTStrdup(options->ep_config->pkcs11.module_pin);
+			if (m->c->ep_config->pkcs11.module_pin == NULL)
+			{
+				goto exit;
+			}
+		}
+
+		m->c->ep_config->pkcs11.use_for_all = options->ep_config->pkcs11.use_for_all;
+
+		// Clone PSK configuration
+		m->c->ep_config->psk.enable_psk = options->ep_config->psk.enable_psk;
+		m->c->ep_config->psk.enable_cert_auth = options->ep_config->psk.enable_cert_auth;
+		m->c->ep_config->psk.use_external_callbacks = options->ep_config->psk.use_external_callbacks;
+
+		if (options->ep_config->psk.key != NULL)
+		{
+			m->c->ep_config->psk.key = MQTTStrdup(options->ep_config->psk.key);
+			if (m->c->ep_config->psk.key == NULL)
+			{
+				goto exit;
+			}
+		}
+
+		if (options->ep_config->psk.identity != NULL)
+		{
+			m->c->ep_config->psk.identity = MQTTStrdup(options->ep_config->psk.identity);
+			if (m->c->ep_config->psk.identity == NULL)
+			{
+				goto exit;
+			}
+		}
+
+		// Copy callback pointers
+		m->c->ep_config->psk.callback_ctx = options->ep_config->psk.callback_ctx;
+		m->c->ep_config->psk.psk_client_cb = options->ep_config->psk.psk_client_cb;
+		m->c->ep_config->psk.psk_server_cb = options->ep_config->psk.psk_server_cb;
+
+		// Clone device certificate chain
+		if (options->ep_config->device_certificate_chain.buffer != NULL &&
+			options->ep_config->device_certificate_chain.size > 0)
+		{
+
+			m->c->ep_config->device_certificate_chain.buffer = MQTTStrdup(options->ep_config->device_certificate_chain.buffer);
+			m->c->ep_config->device_certificate_chain.size = options->ep_config->device_certificate_chain.size;
+		}
+
+		// Clone private key
+		if (options->ep_config->private_key.buffer != NULL &&
+			options->ep_config->private_key.size > 0)
+		{
+
+			m->c->ep_config->private_key.buffer = MQTTStrdup(options->ep_config->private_key.buffer);
+			m->c->ep_config->private_key.size = options->ep_config->private_key.size;
+
+			if (m->c->ep_config->private_key.buffer == NULL)
+			{
+				goto exit;
+			}
+		}
+
+		// Clone additional key buffer
+		if (options->ep_config->private_key.additional_key_buffer != NULL &&
+			options->ep_config->private_key.additional_key_size > 0)
+		{
+
+			m->c->ep_config->private_key.additional_key_buffer = MQTTStrdup(options->ep_config->private_key.additional_key_buffer);
+			if (m->c->ep_config->private_key.additional_key_buffer == NULL)
+			{
+				goto exit;
+			}
+			m->c->ep_config->private_key.additional_key_size = options->ep_config->private_key.additional_key_size;
+		}
+
+		// Clone root certificate
+		if (options->ep_config->root_certificate.buffer != NULL &&
+			options->ep_config->root_certificate.size > 0)
+		{
+
+			m->c->ep_config->root_certificate.buffer = MQTTStrdup(options->ep_config->root_certificate.buffer);
+			m->c->ep_config->root_certificate.size = options->ep_config->root_certificate.size;
+
+			if (m->c->ep_config->root_certificate.buffer == NULL)
+			{
+				goto exit;
+			}
+		}
+
+		// Clone keylog file
+		if (options->ep_config->keylog_file != NULL)
+		{
+			m->c->ep_config->keylog_file = MQTTStrdup(options->ep_config->keylog_file);
+			if (m->c->ep_config->keylog_file == NULL)
+			{
+				goto exit;
+			}
+		}
+	}
 #endif
 
 	if (m->c->username)
@@ -1768,7 +2125,7 @@ MQTTResponse MQTTClient_connectAll(MQTTClient handle, MQTTClient_connectOptions 
 		goto exit;
 	}
 
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 	if (m->ssl && options->ssl == NULL)
 	{
 		rc.reasonCode = MQTTCLIENT_NULL_PARAMETER;
@@ -1809,6 +2166,8 @@ MQTTResponse MQTTClient_connectAll(MQTTClient handle, MQTTClient_connectOptions 
 			goto exit;
 		}
 	}
+#elif defined(PAHO_ASL)
+	// not implemented yet, since versioning is not implemented yet
 #endif
 
 	if ((options->username && !UTF8_validateString(options->username)) ||
@@ -1865,7 +2224,7 @@ MQTTResponse MQTTClient_connectAll(MQTTClient handle, MQTTClient_connectOptions 
 				serverURI += strlen(URI_WS);
 				m->websocket = 1;
 			}
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 			else if (strncmp(URI_SSL, serverURI, strlen(URI_SSL)) == 0)
 			{
 				serverURI += strlen(URI_SSL);
@@ -2555,13 +2914,18 @@ static MQTTPacket *MQTTClient_cycle(SOCKET *sock, ELAPSED_TIME_TYPE timeout, int
 	if ((*sock = SSLSocket_getPendingRead()) == -1)
 	{
 		/* 0 from getReadySocket indicates no work to do, rc -1 == error */
+
+#elif defined(PAHO_ASL)
+	if ((*sock = ASLSocket_getPendingRead()) == -1)
+	{
+		/* 0 from getReadySocket indicates no work to do, rc -1 == error */
 #endif
 		start = MQTTTime_start_clock();
 		*sock = Socket_getReadySocket(0, (int)timeout, socket_mutex, rc);
 		*rc = rc1;
 		if (*sock == 0 && timeout >= 100L && MQTTTime_elapsed(start) < (int64_t)10)
 			MQTTTime_sleep(100L);
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 	}
 #endif
 	Paho_thread_lock_mutex(mqttclient_mutex);
@@ -2711,6 +3075,18 @@ static MQTTPacket *MQTTClient_waitfor(MQTTClient handle, int packet_type, int *r
 						break;
 					}
 				}
+#elif defined(PAHO_ASL)
+					else if (m->c->connect_state == SSL_IN_PROGRESS)
+					{
+						*rc = ASLSocket_connect(m->c->net.ssl, sock, m->currentServerURI, 0, NULL, NULL);
+						if (*rc == SSL_FATAL)
+							break;
+						else if (*rc == 1) /* rc == 1 means SSL connect has finished and succeeded */
+						{
+							// we dont use get_session
+							break;
+						}
+					}
 #endif
 				else if (m->c->connect_state == WEBSOCKET_IN_PROGRESS && *rc != TCPSOCKET_INTERRUPTED)
 				{

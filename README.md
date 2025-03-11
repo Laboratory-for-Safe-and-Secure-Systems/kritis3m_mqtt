@@ -88,6 +88,8 @@ export MQTT_C_CLIENT_TRACE_LEVEL=PROTOCOL
 
 Please open issues in the Github project: https://github.com/eclipse-paho/paho.mqtt.c/issues.
 
+g
+
 ## More information
 
 Discussion of the Paho clients takes place on the [Eclipse paho-dev mailing list](https://dev.eclipse.org/mailman/listinfo/paho-dev).

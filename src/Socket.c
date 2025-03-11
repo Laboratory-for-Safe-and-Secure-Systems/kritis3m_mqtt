@@ -34,6 +34,8 @@
 #include "StackTrace.h"
 #if defined(OPENSSL)
 #include "SSLSocket.h"
+#elif defined(PAHO_ASL)
+#include "ASLSocket.h"
 #endif
 
 #include <stdlib.h>
@@ -1399,6 +1401,13 @@ int Socket_continueWrite(SOCKET socket)
 		rc = SSLSocket_continueWrite(pw);
 		goto exit;
 	}
+
+#elif defined(PAHO_ASL)
+	if (pw->ssl)
+	{
+		rc = ASLSocket_continueWrite(pw);
+		goto exit;
+	}
 #endif
 
 	for (i = 0; i < pw->count; ++i)
@@ -1452,7 +1461,7 @@ int Socket_continueWrite(SOCKET socket)
 			}
 		}
 	}
-#if defined(OPENSSL)
+#if defined(OPENSSL)||defined (PAHO_ASL)
 exit:
 #endif
 	FUNC_EXIT_RC(rc);

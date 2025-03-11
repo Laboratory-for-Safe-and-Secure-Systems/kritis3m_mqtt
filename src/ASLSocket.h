@@ -32,7 +32,7 @@ int ASLSocket_close(networkHandles *net);
 int ASLSocket_putdatas(asl_session *ssl, SOCKET socket, char *buf0, size_t buf0len, PacketBuffers bufs);
 int ASLSocket_connect(asl_session *ssl, SOCKET sock, const char *hostname, int verify, int (*cb)(const char *str, size_t len, void *u), void *u);
 
-SOCKET SSLSocket_getPendingRead(void);
+SOCKET ASLSocket_getPendingRead(void);
 int ASLSocket_continueWrite(pending_writes *pw);
 int ASLSocket_abortWrite(pending_writes *pw);
 

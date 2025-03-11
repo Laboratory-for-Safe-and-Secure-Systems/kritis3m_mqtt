@@ -45,7 +45,7 @@ int SSL_destroy_mutex(ssl_mutex_type *mutex)
     return rc;
 }
 
-int SSLSocket_initialize(void)
+int ASLSocket_initialize(void)
 {
 
     int rc = 0;
@@ -82,13 +82,13 @@ int ASLSocket_setSocketForTLS(networkHandles *net, asl_endpoint_configuration *o
         net->ssl = asl_create_session(net->ep, (int)net->socket);
         if (!net->ssl)
         {
-            rc = -1;
+            rc = SSL_FATAL;
         }
         // check hostname option ?
     }
 
     FUNC_EXIT_RC(rc);
-    return -1;
+    return rc;
 }
 
 int SSL_lock_mutex(ssl_mutex_type *mutex)
@@ -324,14 +324,16 @@ int ASLSocket_connect(asl_session *ssl, SOCKET sock, const char *hostname, int v
     FUNC_ENTRY;
 
     rc = asl_handshake(ssl);
-
     if (rc == ASL_WANT_READ || rc == ASL_WANT_WRITE)
         rc = TCPSOCKET_INTERRUPTED;
+    else if (rc == ASL_SUCCESS)
+        rc = SSL_SUCCESS;
+    else if (rc < 0)
+        rc = SSL_FATAL;
 
     FUNC_EXIT_RC(rc);
     return rc;
 }
-
 
 SOCKET ASLSocket_getPendingRead(void)
 {
@@ -362,6 +364,11 @@ int ASLSocket_continueWrite(pending_writes *pw)
     {
         if (rc == ASL_WANT_WRITE)
             rc = 0;
+        else
+        {
+            rc = SSL_FATAL;
+            Log(TRACE_MIN, -1, "ASL retcode set to ssl fatal. pls verify if this is correct");
+        }
     }
     FUNC_EXIT_RC(rc);
     return rc;

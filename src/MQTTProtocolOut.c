@@ -3,11 +3,11 @@
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v2.0
- * and Eclipse Distribution License v1.0 which accompany this distribution. 
+ * and Eclipse Distribution License v1.0 which accompany this distribution.
  *
- * The Eclipse Public License is available at 
+ * The Eclipse Public License is available at
  *    https://www.eclipse.org/legal/epl-2.0/
- * and the Eclipse Distribution License is available at 
+ * and the Eclipse Distribution License is available at
  *   http://www.eclipse.org/org/documents/edl-v10.php.
  *
  * Contributors:
@@ -42,9 +42,7 @@
 #include "Proxy.h"
 #include "Base64.h"
 
-extern ClientStates* bstate;
-
-
+extern ClientStates *bstate;
 
 /**
  * Separates an address:port into two separate values
@@ -53,20 +51,20 @@ extern ClientStates* bstate;
  * @param[out] topic optional topic portion of the address starting with '/'
  * @return the address string
  */
-size_t MQTTProtocol_addressPort(const char* uri, int* port, const char **topic, int default_port)
+size_t MQTTProtocol_addressPort(const char *uri, int *port, const char **topic, int default_port)
 {
-	char* buf = (char*)uri;
-	char* colon_pos;
+	char *buf = (char *)uri;
+	char *colon_pos;
 	size_t len;
-	char* topic_pos;
+	char *topic_pos;
 
 	FUNC_ENTRY;
 	colon_pos = strrchr(uri, ':'); /* reverse find to allow for ':' in IPv6 addresses */
 
 	if (uri[0] == '[')
-	{  /* ip v6 */
+	{ /* ip v6 */
 		if (colon_pos < strrchr(uri, ']'))
-			colon_pos = NULL;  /* means it was an IPv6 separator, not for host:port */
+			colon_pos = NULL; /* means it was an IPv6 separator, not for host:port */
 	}
 
 	if (colon_pos) /* have to strip off the port */
@@ -81,7 +79,7 @@ size_t MQTTProtocol_addressPort(const char* uri, int* port, const char **topic, 
 	}
 
 	/* find any topic portion */
-	topic_pos = (char*)uri;
+	topic_pos = (char *)uri;
 	if (colon_pos)
 		topic_pos = colon_pos;
 	topic_pos = strchr(topic_pos, '/');
@@ -102,7 +100,6 @@ size_t MQTTProtocol_addressPort(const char* uri, int* port, const char **topic, 
 	return len;
 }
 
-
 /**
  * MQTT outgoing connect processing for a client
  * @param address The address of the server. For TCP this is in the form
@@ -118,28 +115,29 @@ size_t MQTTProtocol_addressPort(const char* uri, int* port, const char **topic, 
  * @param timeout how long to wait for a new socket to be created
  * @return return code
  */
-#if defined(OPENSSL)
+#define PAHO_ASL
+#if defined(OPENSSL) || defined(PAHO_ASL)
 #if defined(__GNUC__) && defined(__linux__)
-int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, int ssl, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties, long timeout)
+int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, int ssl, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties, long timeout)
 #else
-int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, int ssl, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties)
+int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, int ssl, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties)
 #endif
 #else
 #if defined(__GNUC__) && defined(__linux__)
-int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties, long timeout)
+int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties, long timeout)
 #else
-int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, int websocket, int MQTTVersion,
-		MQTTProperties* connectProperties, MQTTProperties* willProperties)
+int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, int websocket, int MQTTVersion,
+						 MQTTProperties *connectProperties, MQTTProperties *willProperties)
 #endif
 #endif
 {
 	int rc = 0,
 		port;
 	size_t addr_len;
-	char* p0 = NULL;
+	char *p0 = NULL;
 
 	FUNC_ENTRY;
 	aClient->good = 1;
@@ -151,15 +149,15 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 		else /* if the proxy isn't set in the API, then we can look in the environment */
 		{
 			/* Don't use the environment HTTP proxy settings by default - for backwards compatibility */
-			char* use_proxy = getenv("PAHO_C_CLIENT_USE_HTTP_PROXY");
+			char *use_proxy = getenv("PAHO_C_CLIENT_USE_HTTP_PROXY");
 			if (use_proxy)
 			{
 				if (strncmp(use_proxy, "TRUE", strlen("TRUE")) == 0)
 				{
-					char* http_proxy = getenv("http_proxy");
+					char *http_proxy = getenv("http_proxy");
 					if (http_proxy)
 					{
-						char* no_proxy = getenv("no_proxy");
+						char *no_proxy = getenv("no_proxy");
 						if (no_proxy)
 						{
 							if (Proxy_noProxy(address, no_proxy))
@@ -182,7 +180,7 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 		}
 	}
 
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 	if (!unixsock)
 	{
 		if (aClient->httpsProxy)
@@ -190,15 +188,15 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 		else /* if the proxy isn't set in the API then we can look in the environment */
 		{
 			/* Don't use the environment HTTP proxy settings by default - for backwards compatibility */
-			char* use_proxy = getenv("PAHO_C_CLIENT_USE_HTTP_PROXY");
+			char *use_proxy = getenv("PAHO_C_CLIENT_USE_HTTP_PROXY");
 			if (use_proxy)
 			{
 				if (strncmp(use_proxy, "TRUE", strlen("TRUE")) == 0)
 				{
-					char* https_proxy = getenv("https_proxy");
+					char *https_proxy = getenv("https_proxy");
 					if (https_proxy)
 					{
-						char* no_proxy = getenv("no_proxy");
+						char *no_proxy = getenv("no_proxy");
 						if (no_proxy)
 						{
 							if (Proxy_noProxy(address, no_proxy))
@@ -213,7 +211,7 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 
 		if (p0)
 		{
-			char* prefix = NULL;
+			char *prefix = NULL;
 
 			if (memcmp(p0, "http://", 7) == 0)
 				prefix = "http://";
@@ -233,9 +231,11 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 		}
 	}
 
-	if (!ssl && aClient->net.http_proxy) {
+	if (!ssl && aClient->net.http_proxy)
+	{
 #else
-	if (aClient->net.http_proxy) {
+	if (aClient->net.http_proxy)
+	{
 #endif
 		addr_len = MQTTProtocol_addressPort(aClient->net.http_proxy, &port, NULL, PROXY_DEFAULT_PORT);
 #if defined(__GNUC__) && defined(__linux__)
@@ -248,7 +248,8 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 #endif
 	}
 #if defined(OPENSSL)
-	else if (ssl && aClient->net.https_proxy) {
+	else if (ssl && aClient->net.https_proxy)
+	{
 		addr_len = MQTTProtocol_addressPort(aClient->net.https_proxy, &port, NULL, PROXY_DEFAULT_PORT);
 #if defined(__GNUC__) && defined(__linux__)
 		if (timeout < 0)
@@ -261,16 +262,16 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 	}
 #endif
 #if defined(UNIXSOCK)
-	else if (unixsock) {
+	else if (unixsock)
+	{
 		addr_len = strlen(address);
 		rc = Socket_unix_new(address, addr_len, &(aClient->net.socket));
 	}
 #endif
-	else {
+	else
+	{
 #if defined(OPENSSL)
-		addr_len = MQTTProtocol_addressPort(address, &port, NULL, ssl ?
-				(websocket ? WSS_DEFAULT_PORT : SECURE_MQTT_DEFAULT_PORT) :
-				(websocket ? WS_DEFAULT_PORT : MQTT_DEFAULT_PORT) );
+		addr_len = MQTTProtocol_addressPort(address, &port, NULL, ssl ? (websocket ? WSS_DEFAULT_PORT : SECURE_MQTT_DEFAULT_PORT) : (websocket ? WS_DEFAULT_PORT : MQTT_DEFAULT_PORT));
 #else
 		addr_len = MQTTProtocol_addressPort(address, &port, NULL, websocket ? WS_DEFAULT_PORT : MQTT_DEFAULT_PORT);
 #endif
@@ -286,42 +287,44 @@ int MQTTProtocol_connect(const char* address, Clients* aClient, int unixsock, in
 	if (rc == EINPROGRESS || rc == EWOULDBLOCK)
 		aClient->connect_state = TCP_IN_PROGRESS; /* TCP connect called - wait for connect completion */
 	else if (rc == 0)
-	{	/* TCP connect completed. If SSL, send SSL connect */
+	{ /* TCP connect completed. If SSL, send SSL connect */
 #if defined(OPENSSL)
 		if (ssl)
 		{
-			if (aClient->net.https_proxy) {
+			if (aClient->net.https_proxy)
+			{
 				aClient->connect_state = PROXY_CONNECT_IN_PROGRESS;
-				rc = Proxy_connect( &aClient->net, 1, address);
+				rc = Proxy_connect(&aClient->net, 1, address);
 			}
 			if (rc == 0 && SSLSocket_setSocketForSSL(&aClient->net, aClient->sslopts, address, addr_len) == 1)
 			{
-				rc = aClient->sslopts->struct_version >= 3 ?
-					SSLSocket_connect(aClient->net.ssl, aClient->net.socket, address,
-						aClient->sslopts->verify, aClient->sslopts->ssl_error_cb, aClient->sslopts->ssl_error_context) :
-					SSLSocket_connect(aClient->net.ssl, aClient->net.socket, address,
-						aClient->sslopts->verify, NULL, NULL);
+				rc = aClient->sslopts->struct_version >= 3 ? SSLSocket_connect(aClient->net.ssl, aClient->net.socket, address,
+																			   aClient->sslopts->verify, aClient->sslopts->ssl_error_cb, aClient->sslopts->ssl_error_context)
+														   : SSLSocket_connect(aClient->net.ssl, aClient->net.socket, address,
+																			   aClient->sslopts->verify, NULL, NULL);
 				if (rc == TCPSOCKET_INTERRUPTED)
 					aClient->connect_state = SSL_IN_PROGRESS; /* SSL connect called - wait for completion */
 			}
 			else
 				rc = SOCKET_ERROR;
 		}
-		else if (aClient->net.http_proxy) {
+		else if (aClient->net.http_proxy)
+		{
 #else
-		if (aClient->net.http_proxy) {
+		if (aClient->net.http_proxy)
+		{
 #endif
 			aClient->connect_state = PROXY_CONNECT_IN_PROGRESS;
-			rc = Proxy_connect( &aClient->net, 0, address);
+			rc = Proxy_connect(&aClient->net, 0, address);
 		}
-		if ( websocket )
+		if (websocket)
 		{
 #if defined(OPENSSL)
 			rc = WebSocket_connect(&aClient->net, ssl, address);
 #else
 			rc = WebSocket_connect(&aClient->net, 0, address);
 #endif
-			if ( rc == TCPSOCKET_INTERRUPTED )
+			if (rc == TCPSOCKET_INTERRUPTED)
 				aClient->connect_state = WEBSOCKET_IN_PROGRESS; /* Websocket connect called - wait for completion */
 		}
 		if (rc == 0)
@@ -339,31 +342,29 @@ exit:
 	return rc;
 }
 
-
 /**
  * Process an incoming pingresp packet for a socket
  * @param pack pointer to the publish packet
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handlePingresps(void* pack, SOCKET sock)
+int MQTTProtocol_handlePingresps(void *pack, SOCKET sock)
 {
-	Clients* client = NULL;
-	ListElement* result = NULL;
+	Clients *client = NULL;
+	ListElement *result = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 
 	FUNC_ENTRY;
 	result = ListFindItem(bstate->clients, &sock, clientSocketCompare);
 	if (result)
 	{
-		client = (Clients*)(result->content);
+		client = (Clients *)(result->content);
 		Log(LOG_PROTOCOL, 21, NULL, sock, client->clientID);
 	}
 	client->ping_outstanding = 0;
 	FUNC_EXIT_RC(rc);
 	return rc;
 }
-
 
 /**
  * MQTT outgoing subscribe processing for a client
@@ -374,8 +375,8 @@ int MQTTProtocol_handlePingresps(void* pack, SOCKET sock)
  * @param props MQTT 5.0 subscribe properties
  * @return completion code
  */
-int MQTTProtocol_subscribe(Clients* client, List* topics, List* qoss, int msgID,
-		MQTTSubscribe_options* opts, MQTTProperties* props)
+int MQTTProtocol_subscribe(Clients *client, List *topics, List *qoss, int msgID,
+						   MQTTSubscribe_options *opts, MQTTProperties *props)
 {
 	int rc = 0;
 
@@ -385,25 +386,24 @@ int MQTTProtocol_subscribe(Clients* client, List* topics, List* qoss, int msgID,
 	return rc;
 }
 
-
 /**
  * Process an incoming suback packet for a socket
  * @param pack pointer to the publish packet
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handleSubacks(void* pack, SOCKET sock)
+int MQTTProtocol_handleSubacks(void *pack, SOCKET sock)
 {
-	Suback* suback = (Suback*)pack;
-	Clients* client = NULL;
-	ListElement* result = NULL;
+	Suback *suback = (Suback *)pack;
+	Clients *client = NULL;
+	ListElement *result = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 
 	FUNC_ENTRY;
 	result = ListFindItem(bstate->clients, &sock, clientSocketCompare);
 	if (result)
 	{
-		client = (Clients*)(result->content);
+		client = (Clients *)(result->content);
 		Log(LOG_PROTOCOL, 23, NULL, sock, client->clientID, suback->msgId);
 	}
 	MQTTPacket_freeSuback(suback);
@@ -411,14 +411,13 @@ int MQTTProtocol_handleSubacks(void* pack, SOCKET sock)
 	return rc;
 }
 
-
 /**
  * MQTT outgoing unsubscribe processing for a client
  * @param client the client structure
  * @param topics list of topics
  * @return completion code
  */
-int MQTTProtocol_unsubscribe(Clients* client, List* topics, int msgID, MQTTProperties* props)
+int MQTTProtocol_unsubscribe(Clients *client, List *topics, int msgID, MQTTProperties *props)
 {
 	int rc = 0;
 
@@ -428,25 +427,24 @@ int MQTTProtocol_unsubscribe(Clients* client, List* topics, int msgID, MQTTPrope
 	return rc;
 }
 
-
 /**
  * Process an incoming unsuback packet for a socket
  * @param pack pointer to the publish packet
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handleUnsubacks(void* pack, SOCKET sock)
+int MQTTProtocol_handleUnsubacks(void *pack, SOCKET sock)
 {
-	Unsuback* unsuback = (Unsuback*)pack;
-	Clients* client = NULL;
-	ListElement* result = NULL;
+	Unsuback *unsuback = (Unsuback *)pack;
+	Clients *client = NULL;
+	ListElement *result = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 
 	FUNC_ENTRY;
 	result = ListFindItem(bstate->clients, &sock, clientSocketCompare);
 	if (result)
 	{
-		client = (Clients*)(result->content);
+		client = (Clients *)(result->content);
 		Log(LOG_PROTOCOL, 24, NULL, sock, client->clientID, unsuback->msgId);
 	}
 	MQTTPacket_freeUnsuback(unsuback);
@@ -454,29 +452,27 @@ int MQTTProtocol_handleUnsubacks(void* pack, SOCKET sock)
 	return rc;
 }
 
-
 /**
  * Process an incoming disconnect packet for a socket
  * @param pack pointer to the disconnect packet
  * @param sock the socket on which the packet was received
  * @return completion code
  */
-int MQTTProtocol_handleDisconnects(void* pack, SOCKET sock)
+int MQTTProtocol_handleDisconnects(void *pack, SOCKET sock)
 {
-	Ack* disconnect = (Ack*)pack;
-	Clients* client = NULL;
-	ListElement* result = NULL;
+	Ack *disconnect = (Ack *)pack;
+	Clients *client = NULL;
+	ListElement *result = NULL;
 	int rc = TCPSOCKET_COMPLETE;
 
 	FUNC_ENTRY;
 	result = ListFindItem(bstate->clients, &sock, clientSocketCompare);
 	if (result)
 	{
-		client = (Clients*)(result->content);
+		client = (Clients *)(result->content);
 		Log(LOG_PROTOCOL, 30, NULL, sock, client->clientID, disconnect->rc);
 	}
 	MQTTPacket_freeAck(disconnect);
 	FUNC_EXIT_RC(rc);
 	return rc;
 }
-

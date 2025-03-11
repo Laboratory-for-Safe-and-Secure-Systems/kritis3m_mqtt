@@ -1,2 +1,3 @@
 - [ ] IN ASLSocket.c compare  ASLSocket_setSocketForTLS with SSLSocketForTLS, i think that its only relevant for check peer cert
 - [ ] In ASLSocket.c compare ASLSocket_getdata 
+- [ ] ASLsocket_connect, check peer certificate verify, see sslsocket_connect
