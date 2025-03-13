@@ -21,7 +21,6 @@
 
 #if !defined(CLIENTS_H)
 #define CLIENTS_H
-#define PAHO_ASL
 
 #include <stdint.h>
 #include "MQTTTime.h"

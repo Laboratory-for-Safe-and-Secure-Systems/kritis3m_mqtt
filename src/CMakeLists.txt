@@ -85,6 +85,60 @@ elseif(UNIX)
   endif()
 endif()
 
+
+install(
+  FILES
+    MQTTClient.h
+    MQTTClientPersistence.h
+    MQTTProperties.h
+    MQTTReasonCodes.h
+    MQTTSubscribeOpts.h
+    MQTTExportDeclarations.h
+  DESTINATION
+    ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+if (PAHO_WITH_ASL)
+
+    find_package(kritis3m_asl REQUIRED)
+    set(SSL_LIBRARY_NAME kritis3m_asl)
+    set(SSL_INCLUDE_DIR ${kritis3m_asl_INCLUDE_DIR})
+    set(SSL_ROOT_DIR ${kritis3m_asl_ROOT_DIR})
+
+
+    add_library(kritis3m_mqtt STATIC
+                        ${common_src}
+                        MQTTClient.c
+                        SSLSocket.c
+                        MQTTAsyncUtils.c
+                        ASLSocket.c
+)
+    target_include_directories(kritis3m_mqtt PUBLIC
+      PUBLIC
+        ${SSL_INCLUDE_DIR}
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+      PRIVATE
+        ${CMAKE_BINARY_DIR})
+  
+
+    set_target_properties(kritis3m_mqtt PROPERTIES
+      VERSION ${PROJECT_VERSION}
+      SOVERSION ${PROJECT_VERSION_MAJOR}
+      COMPILE_DEFINITIONS "PAHO_ASL=1;PAHO_MQTT_STATIC=1"
+    )
+
+    target_compile_definitions(kritis3m_mqtt  PRIVATE PAHO_ASL=1;PAHO_MQTT_STATIC=1)
+
+    target_link_libraries(kritis3m_mqtt
+        PUBLIC
+          kritis3m_asl ${LIBS_SYSTEM}
+      )
+
+
+
+else (PAHO_WITH_ASL)
+
 if(PAHO_BUILD_SHARED)
   # common compilation for libpaho-mqtt3c and libpaho-mqtt3a
   add_library(common_obj OBJECT ${common_src})
@@ -214,61 +268,6 @@ if(PAHO_BUILD_STATIC)
     )
   endif()
 endif()
-
-install(
-  FILES
-    MQTTAsync.h
-    MQTTClient.h
-    MQTTClientPersistence.h
-    MQTTProperties.h
-    MQTTReasonCodes.h
-    MQTTSubscribeOpts.h
-    MQTTExportDeclarations.h
-  DESTINATION
-    ${CMAKE_INSTALL_INCLUDEDIR}
-)
-if (PAHO_WITH_ASL)
-
-    find_package(kritis3m_asl REQUIRED)
-    set(SSL_LIBRARY_NAME kritis3m_asl)
-    set(SSL_INCLUDE_DIR ${kritis3m_asl_INCLUDE_DIR})
-    set(SSL_ROOT_DIR ${kritis3m_asl_ROOT_DIR})
-
-
-    add_library(kritis3m_mqtt STATIC
-                        ${common_src}
-                        MQTTClient.c
-                        SSLSocket.c
-                        MQTTAsync.c
-                        MQTTAsyncUtils.c
-                        ASLSocket.c
-)
-    target_include_directories(kritis3m_mqtt PUBLIC
-      PUBLIC
-        ${SSL_INCLUDE_DIR}
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-      PRIVATE
-        ${CMAKE_BINARY_DIR})
-  
-
-    set_target_properties(kritis3m_mqtt PROPERTIES
-      VERSION ${PROJECT_VERSION}
-      SOVERSION ${PROJECT_VERSION_MAJOR}
-      COMPILE_DEFINITIONS "PAHO_ASL=1;PAHO_MQTT_STATIC=1"
-    )
-
-    target_compile_definitions(kritis3m_mqtt  PRIVATE PAHO_ASL=1;PAHO_MQTT_STATIC=1)
-
-    target_link_libraries(kritis3m_mqtt
-        PUBLIC
-          kritis3m_asl ${LIBS_SYSTEM}
-      )
-
-
-
-
-endif(PAHO_WITH_ASL)
 
 if(PAHO_WITH_SSL OR PAHO_WITH_LIBRESSL)
   if(PAHO_WITH_LIBRESSL)
@@ -473,3 +472,6 @@ if(PAHO_WITH_SSL OR PAHO_WITH_LIBRESSL)
 	target_link_libraries(Sha1TestOpenSSL ${SSL_LIBRARY_NAME}::SSL ${SSL_LIBRARY_NAME}::Crypto)
 	target_compile_definitions(Sha1TestOpenSSL PUBLIC SHA1_TEST OPENSSL=1)
 endif()
+
+
+endif(PAHO_WITH_ASL)
