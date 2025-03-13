@@ -923,12 +923,14 @@ extern "C"
      * This is a pointer to an MQTTClient_SSLOptions structure. If your
      * application does not make use of SSL, set this pointer to NULL.
      */
+
+#if defined(OPENSSL)
     MQTTClient_SSLOptions *ssl;
-/**
- * The number of entries in the optional serverURIs array. Defaults to 0.
- */
-#if defined(PAHO_ASL)
-    asl_endpoint_configuration *ep_config;
+#elif defined(PAHO_ASL)
+  /**
+   * The number of entries in the optional serverURIs array. Defaults to 0.
+   */
+  asl_endpoint_configuration *ep_config;
 #endif
 
     int serverURIcount;

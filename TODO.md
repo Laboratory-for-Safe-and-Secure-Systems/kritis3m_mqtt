@@ -1,3 +1,4 @@
 - [ ] IN ASLSocket.c compare  ASLSocket_setSocketForTLS with SSLSocketForTLS, i think that its only relevant for check peer cert
 - [ ] In ASLSocket.c compare ASLSocket_getdata 
+- [ ] websocket include, check sha1, which requires openssl
 - [ ] ASLsocket_connect, check peer certificate verify, see sslsocket_connect

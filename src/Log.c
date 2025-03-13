@@ -69,7 +69,7 @@ trace_settings_type trace_settings =
 #if defined(HIGH_PERFORMANCE)
 	LOG_ERROR,
 #else
-	TRACE_MINIMUM,
+	TRACE_MAXIMUM,
 #endif
 	400,
 	INVALID_LEVEL

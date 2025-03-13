@@ -69,7 +69,7 @@ int Proxy_connect(networkHandles *net, int ssl, const char *hostname)
 	hostname_len = MQTTProtocol_addressPort(hostname, &port, NULL, PROXY_DEFAULT_PORT);
 	for (i = 0; i < 2; ++i)
 	{
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		if (ssl)
 		{
 			if (net->https_proxy_auth)
@@ -110,7 +110,7 @@ int Proxy_connect(networkHandles *net, int ssl, const char *hostname)
 								   (int)hostname_len, hostname, port,
 								   (int)hostname_len, hostname);
 			}
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		}
 #endif
 		if (i == 0 && buf_len > 0)

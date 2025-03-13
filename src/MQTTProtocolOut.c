@@ -247,7 +247,7 @@ int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, in
 		rc = Socket_new(aClient->net.http_proxy, addr_len, port, &(aClient->net.socket));
 #endif
 	}
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 	else if (ssl && aClient->net.https_proxy)
 	{
 		addr_len = MQTTProtocol_addressPort(aClient->net.https_proxy, &port, NULL, PROXY_DEFAULT_PORT);
@@ -270,7 +270,7 @@ int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, in
 #endif
 	else
 	{
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		addr_len = MQTTProtocol_addressPort(address, &port, NULL, ssl ? (websocket ? WSS_DEFAULT_PORT : SECURE_MQTT_DEFAULT_PORT) : (websocket ? WS_DEFAULT_PORT : MQTT_DEFAULT_PORT));
 #else
 		addr_len = MQTTProtocol_addressPort(address, &port, NULL, websocket ? WS_DEFAULT_PORT : MQTT_DEFAULT_PORT);
@@ -288,7 +288,7 @@ int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, in
 		aClient->connect_state = TCP_IN_PROGRESS; /* TCP connect called - wait for connect completion */
 	else if (rc == 0)
 	{ /* TCP connect completed. If SSL, send SSL connect */
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 		if (ssl)
 		{
 			if (aClient->net.https_proxy)
@@ -296,12 +296,19 @@ int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, in
 				aClient->connect_state = PROXY_CONNECT_IN_PROGRESS;
 				rc = Proxy_connect(&aClient->net, 1, address);
 			}
+#if defined(PAHO_ASL)
+			if (rc == 0 && ASLSocket_setSocketForTLS(&aClient->net, aClient->ep_config, address, addr_len) == 1)
+			{
+				rc = ASLSocket_connect(aClient->net.ssl, aClient->net.socket, address,
+									   0, NULL, NULL);
+#elif defined(OPENSSL)
 			if (rc == 0 && SSLSocket_setSocketForSSL(&aClient->net, aClient->sslopts, address, addr_len) == 1)
 			{
 				rc = aClient->sslopts->struct_version >= 3 ? SSLSocket_connect(aClient->net.ssl, aClient->net.socket, address,
 																			   aClient->sslopts->verify, aClient->sslopts->ssl_error_cb, aClient->sslopts->ssl_error_context)
 														   : SSLSocket_connect(aClient->net.ssl, aClient->net.socket, address,
 																			   aClient->sslopts->verify, NULL, NULL);
+#endif
 				if (rc == TCPSOCKET_INTERRUPTED)
 					aClient->connect_state = SSL_IN_PROGRESS; /* SSL connect called - wait for completion */
 			}
@@ -319,7 +326,7 @@ int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, in
 		}
 		if (websocket)
 		{
-#if defined(OPENSSL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 			rc = WebSocket_connect(&aClient->net, ssl, address);
 #else
 			rc = WebSocket_connect(&aClient->net, 0, address);

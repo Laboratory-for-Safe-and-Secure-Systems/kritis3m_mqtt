@@ -622,7 +622,6 @@ SOCKET Socket_getReadySocket(int more_work, int timeout, mutex_type mutex, int *
 			*rc = SOCKET_ERROR;
 			goto exit;
 		}
-
 		/* Prevent performance issue by unlocking the socket_mutex while waiting for a ready socket. */
 		Paho_thread_unlock_mutex(mutex);
 		*rc = poll(mod_s.saved.fds_read, mod_s.saved.nfds, timeout_ms);
@@ -1461,7 +1460,7 @@ int Socket_continueWrite(SOCKET socket)
 			}
 		}
 	}
-#if defined(OPENSSL)||defined (PAHO_ASL)
+#if defined(OPENSSL) || defined(PAHO_ASL)
 exit:
 #endif
 	FUNC_EXIT_RC(rc);
@@ -1486,6 +1485,12 @@ int Socket_abortWrite(SOCKET socket)
 	if (pw->ssl)
 	{
 		rc = SSLSocket_abortWrite(pw);
+		goto exit;
+	}
+#elif defined(PAHO_ASL)
+	if (pw->ssl)
+	{
+		rc = ASLSocket_abortWrite(pw);
 		goto exit;
 	}
 #endif
