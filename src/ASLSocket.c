@@ -4,6 +4,9 @@
 #include "StackTrace.h"
 #include "Heap.h"
 #include "Thread.h"
+#include <string.h>
+
+#define SSL_SUCCESS 1
 
 #include "SocketBuffer.h"
 
