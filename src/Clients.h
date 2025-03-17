@@ -167,7 +167,8 @@ typedef struct Clients
 #if defined(OPENSSL)
 	MQTTClient_SSLOptions *sslopts; /**< the SSL/TLS connect options */
 	SSL_SESSION *session;			/**< SSL session pointer for fast handhake */
-#elif defined(PAHO_ASL)
+#endif
+#if defined(PAHO_ASL)
 	asl_endpoint_configuration *ep_config;
 #endif
 } Clients;

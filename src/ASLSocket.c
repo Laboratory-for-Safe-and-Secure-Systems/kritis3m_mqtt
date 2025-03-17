@@ -139,6 +139,8 @@ int ASLSocket_getch(asl_session *ssl, SOCKET socket, char *c)
             rc = TCPSOCKET_INTERRUPTED;
             SocketBuffer_interrupted(socket, 0);
         }
+        else if (rc == ASL_CONN_CLOSED)
+            rc = SOCKET_ERROR;
     }
     else if (rc == 0)
         rc = SOCKET_ERROR; /* The return value from recv is 0 when the peer has performed an orderly shutdown. */
