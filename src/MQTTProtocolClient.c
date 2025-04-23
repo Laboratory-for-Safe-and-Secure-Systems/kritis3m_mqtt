@@ -1025,8 +1025,8 @@ void MQTTProtocol_freeClient(Clients *client)
 		ep_config->psk.enable_cert_auth = false;
 		ep_config->psk.use_external_callbacks = false;
 		ep_config->psk.callback_ctx = NULL;
-		ep_config->psk.psk_client_cb = NULL;
-		ep_config->psk.psk_server_cb = NULL;
+		ep_config->psk.client_cb = NULL;
+		ep_config->psk.server_cb = NULL;
 
 		if (ep_config->device_certificate_chain.buffer)
 		{

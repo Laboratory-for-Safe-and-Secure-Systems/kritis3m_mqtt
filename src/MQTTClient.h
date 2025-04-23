@@ -130,6 +130,7 @@ extern "C"
 #else
 #define MQTTCLIENT_PERSISTENCE_NONE 1
 #endif
+
 #if defined(PAHO_ASL)
 #include "asl.h"
 #endif

@@ -6,10 +6,8 @@
 #include "Thread.h"
 #include <string.h>
 
-#define SSL_SUCCESS 1
-
 #include "SocketBuffer.h"
-
+#define SSL_SUCCESS 1
 static List pending_reads = {NULL, NULL, NULL, 0, 0};
 extern Sockets mod_s;
 

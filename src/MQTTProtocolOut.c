@@ -115,7 +115,6 @@ size_t MQTTProtocol_addressPort(const char *uri, int *port, const char **topic, 
  * @param timeout how long to wait for a new socket to be created
  * @return return code
  */
-#define PAHO_ASL
 #if defined(OPENSSL) || defined(PAHO_ASL)
 #if defined(__GNUC__) && defined(__linux__)
 int MQTTProtocol_connect(const char *address, Clients *aClient, int unixsock, int ssl, int websocket, int MQTTVersion,

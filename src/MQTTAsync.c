@@ -863,8 +863,8 @@ int MQTTAsync_connect(MQTTAsync handle, const MQTTAsync_connectOptions *options)
 		ep_config->psk.enable_cert_auth = false;
 		ep_config->psk.use_external_callbacks = false;
 		ep_config->psk.callback_ctx = NULL;
-		ep_config->psk.psk_client_cb = NULL;
-		ep_config->psk.psk_server_cb = NULL;
+		ep_config->psk.client_cb = NULL;
+		ep_config->psk.server_cb = NULL;
 
 		if (ep_config->device_certificate_chain.buffer)
 		{
@@ -911,7 +911,7 @@ int MQTTAsync_connect(MQTTAsync handle, const MQTTAsync_connectOptions *options)
 	{
 		if ((m->c->ep_config = malloc(sizeof(asl_endpoint_configuration))) == NULL)
 		{
-			rc= PAHO_MEMORY_ERROR;
+			rc = PAHO_MEMORY_ERROR;
 			goto exit;
 		}
 		memset(m->c->ep_config, '\0', sizeof(asl_endpoint_configuration));
@@ -976,8 +976,8 @@ int MQTTAsync_connect(MQTTAsync handle, const MQTTAsync_connectOptions *options)
 
 		// Copy callback pointers
 		m->c->ep_config->psk.callback_ctx = options->ep_config->psk.callback_ctx;
-		m->c->ep_config->psk.psk_client_cb = options->ep_config->psk.psk_client_cb;
-		m->c->ep_config->psk.psk_server_cb = options->ep_config->psk.psk_server_cb;
+		m->c->ep_config->psk.client_cb = options->ep_config->psk.client_cb;
+		m->c->ep_config->psk.server_cb = options->ep_config->psk.server_cb;
 
 		// Clone device certificate chain
 		if (options->ep_config->device_certificate_chain.buffer != NULL &&

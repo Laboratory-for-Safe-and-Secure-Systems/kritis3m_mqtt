@@ -24,6 +24,7 @@
  *******************************************************************************/
 
 /********************************************************************/
+#define PAHO_ASL
 
 /**
  * @cond MQTTAsync_main
@@ -91,7 +92,6 @@
 #if !defined(MQTTASYNC_H)
 #define MQTTASYNC_H
 
-#define PAHO_ASL
 
 #if defined(__cplusplus)
 extern "C"
@@ -1296,7 +1296,6 @@ extern "C"
      */
     MQTTAsync_SSLOptions *ssl;
 
-#define PAHO_ASL
 #if defined(PAHO_ASL)
     /**
      * The number of entries in the optional serverURIs array. Defaults to 0.
