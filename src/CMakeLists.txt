@@ -100,17 +100,68 @@ install(
 
 if (PAHO_WITH_ASL)
 
-    find_package(kritis3m_asl REQUIRED)
-    set(SSL_LIBRARY_NAME kritis3m_asl)
-    set(SSL_INCLUDE_DIR ${kritis3m_asl_INCLUDE_DIR})
-    set(SSL_ROOT_DIR ${kritis3m_asl_ROOT_DIR})
+    # Prefer config-based find_package for better handling
+    set(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
 
+    # First look for the environment variable KRITIS3M_ASL_ROOT to prioritize a specific installation
+    if(DEFINED ENV{KRITIS3M_ASL_ROOT})
+        set(kritis3m_asl_DIR "$ENV{KRITIS3M_ASL_ROOT}/lib/cmake/kritis3m_asl")
+        message(STATUS "Looking for kritis3m_asl in specified directory: ${kritis3m_asl_DIR}")
+    endif()
+    
+    # Try to find the kritis3m_asl package
+    find_package(kritis3m_asl QUIET)
+    
+    if(kritis3m_asl_FOUND)
+        message(STATUS "Found kritis3m_asl: ${kritis3m_asl_DIR}")
+        set(SSL_LIBRARY_NAME kritis3m_asl)
+        set(SSL_INCLUDE_DIR ${kritis3m_asl_INCLUDE_DIR})
+        set(SSL_ROOT_DIR ${kritis3m_asl_ROOT_DIR})
+    else()
+        # If not found, fetch and build it inline
+        message(STATUS "kritis3m_asl not found, building it from source")
+        
+        # Add FetchContent module if not already included
+        include(FetchContent)
+        
+        # Fetch kritis3m_asl from GitHub
+        FetchContent_Declare(kritis3m_asl
+            GIT_REPOSITORY          git@github.com:Laboratory-for-Safe-and-Secure-Systems/kritis3m_asl.git
+            GIT_TAG                 origin/main
+            GIT_PROGRESS            TRUE
+        )
+        
+        # Configure kritis3m_asl build options
+        # Use STANDALONE=OFF to avoid installing into system directories
+        set(KRITIS3M_ASL_STANDALONE OFF CACHE BOOL "Build kritis3m_asl as standalone" FORCE)
+        set(KRITIS3M_ASL_ENABLE_PKCS11 ON CACHE BOOL "Enable PKCS11 support" FORCE)
+        set(KRITIS3M_ASL_PKCS11_CRYPTO OFF CACHE BOOL "Use PKCS11 for crypto" FORCE)
+        
+        # Add the asl subproject
+        FetchContent_GetProperties(kritis3m_asl)
+        if(NOT kritis3m_asl_POPULATED)
+            FetchContent_Populate(kritis3m_asl)
+            add_subdirectory(${kritis3m_asl_SOURCE_DIR} ${kritis3m_asl_BINARY_DIR} EXCLUDE_FROM_ALL)
+        endif()
+        
+        # Set paths for the inline-built version
+        set(SSL_LIBRARY_NAME kritis3m_asl)
+        set(SSL_INCLUDE_DIR ${kritis3m_asl_SOURCE_DIR}/include)
+        set(SSL_ROOT_DIR ${kritis3m_asl_SOURCE_DIR})
+    endif()
+
+    # Add explicit link directories to avoid runtime search path issues
+    if(kritis3m_asl_FOUND)
+        link_directories(${kritis3m_asl_DIR}/../..)
+    else()
+        link_directories(${kritis3m_asl_BINARY_DIR})
+    endif()
 
     add_library(kritis3m_mqtt STATIC
                         ${common_src}
                         MQTTClient.c
                         ASLSocket.c
-)
+    )
     target_include_directories(kritis3m_mqtt PUBLIC
       PUBLIC
         ${SSL_INCLUDE_DIR}
@@ -128,10 +179,12 @@ if (PAHO_WITH_ASL)
 
     target_compile_definitions(kritis3m_mqtt  PRIVATE PAHO_ASL=1;PAHO_MQTT_STATIC=1)
 
-    target_link_libraries(kritis3m_mqtt
-        PUBLIC
-          kritis3m_asl ${LIBS_SYSTEM}
-      )
+    # Use a consistent naming scheme for linking
+    if(TARGET kritis3m_asl)
+        target_link_libraries(kritis3m_mqtt PUBLIC kritis3m_asl ${LIBS_SYSTEM})
+    else()
+        message(FATAL_ERROR "kritis3m_asl target not found")
+    endif()
 
 
     add_library(kritis3m_mqtt_as STATIC
@@ -139,7 +192,7 @@ if (PAHO_WITH_ASL)
                         MQTTAsync.c
                         MQTTAsyncUtils.c
                         ASLSocket.c
-)
+    )
     target_include_directories(kritis3m_mqtt_as PUBLIC
       PUBLIC
         ${SSL_INCLUDE_DIR}
@@ -157,10 +210,12 @@ if (PAHO_WITH_ASL)
 
     target_compile_definitions(kritis3m_mqtt_as  PRIVATE PAHO_ASL=1;PAHO_MQTT_STATIC=1)
 
-    target_link_libraries(kritis3m_mqtt
-        PUBLIC
-           ${LIBS_SYSTEM}
-      )
+    # Use a consistent naming scheme for linking
+    if(TARGET kritis3m_asl)
+        target_link_libraries(kritis3m_mqtt_as PUBLIC kritis3m_asl ${LIBS_SYSTEM})
+    else()
+        message(FATAL_ERROR "kritis3m_asl target not found")
+    endif()
 
 
 
@@ -411,14 +466,6 @@ if(PAHO_WITH_SSL OR PAHO_WITH_LIBRESSL)
     if(NOT WIN32)
       set_target_properties(paho-mqtt3cs-static PROPERTIES OUTPUT_NAME paho-mqtt3cs)
       set_target_properties(paho-mqtt3as-static PROPERTIES OUTPUT_NAME paho-mqtt3as)
-    endif()
-
-    if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-      set(MQTTCLIENT_ENTRY_POINT _MQTTClient_init)
-      set(MQTTASYNC_ENTRY_POINT _MQTTAsync_init)
-    elseif(NOT WIN32)
-      set(MQTTCLIENT_ENTRY_POINT MQTTClient_init)
-      set(MQTTASYNC_ENTRY_POINT MQTTAsync_init)
     endif()
 
     if(NOT WIN32)
